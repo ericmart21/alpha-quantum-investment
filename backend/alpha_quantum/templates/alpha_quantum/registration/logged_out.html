@@ -1,0 +1,10 @@
+{% extends "alpha_quantum/layout.html" %}
+
+{% block title %}Sesión cerrada | Alpha Quantum{% endblock %}
+
+{% block content %}
+<div class="container text-center mt-5">
+    <h2 class="text-info">Has cerrado sesión</h2>
+    <p class="mt-3">Gracias por usar Alpha Quantum. <a href="{% url 'login' %}">Volver a iniciar sesión</a></p>
+</div>
+{% endblock %}

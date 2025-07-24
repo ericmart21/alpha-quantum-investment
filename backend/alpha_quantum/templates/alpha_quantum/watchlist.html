@@ -1,0 +1,102 @@
+{% extends 'alpha_quantum/layout.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📌 Watchlist de Acciones</h2>
+        <a href="{% url 'añadir_watchlist' %}" class="btn btn-success">➕ Añadir acción</a>
+    </div>
+
+    <table class="table table-dark table-hover">
+        <thead>
+            <tr>
+                <th>Ticker</th>
+                <th>Precio Actual</th>
+                <th>Valor Objetivo</th>
+                <th>Upside</th>
+                <th>Señal</th>
+                <th>📈 Máx 52s</th>
+                <th>📉 Mín 52s</th>
+                <th>PER</th>
+                <th>Recomendación</th>
+            </tr>
+        </thead>
+        <tbody id="tabla-watchlist">
+            {% for accion in acciones %}
+            <tr>
+                <td>{{ accion.ticker }}</td>
+                <td>{{ accion.precio_actual|floatformat:2 }} €</td>
+                <td>
+                    {% if accion.upside > 0 %}
+                    <span class="text-success">{{ accion.upside|floatformat:2 }}% 🔼</span>
+                    {% elif accion.upside < 0 %} <span class="text-danger">{{ accion.upside|floatformat:2 }}% 🔽</span>
+                        {% else %}
+                        <span class="text-warning">0%</span>
+                        {% endif %}
+                </td>
+                <td>
+                    {% if accion.upside > 20 %}
+                    <span class="badge bg-success">Comprar</span>
+                    {% elif accion.upside < -10 %} <span class="badge bg-danger">Vender</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Esperar</span>
+                        {% endif %}
+                </td>
+                <td>{{ accion.max_52s|floatformat:2 }} €</td>
+                <td>{{ accion.min_52s|floatformat:2 }} €</td>
+                <td>{{ accion.recomendacion }}</td>
+                <td>
+                    <a href="{% url 'editar_accion_watchlist' accion.id %}" class="btn btn-primary btn-sm">Editar</a>
+                    <a href="{% url 'eliminar_watchlist' accion.id %}" class="btn btn-danger btn-sm">Eliminar</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        function actualizarTabla() {
+            fetch("{% url 'watchlist_data' %}")
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById("tabla-watchlist");
+                    tbody.innerHTML = "";
+
+                    data.acciones.forEach(accion => {
+                        const upsideColor = accion.upside > 0 ? "text-success" : (accion.upside < 0 ? "text-danger" : "text-warning");
+                        const flecha = accion.upside > 0 ? "🔼" : (accion.upside < 0 ? "🔽" : "");
+                        let badgeColor = "bg-secondary";
+                        let señal = "Esperar";
+                        if (accion.upside > 20) {
+                            badgeColor = "bg-success";
+                            señal = "Comprar";
+                        } else if (accion.upside < -10) {
+                            badgeColor = "bg-danger";
+                            señal = "Vender";
+                        }
+
+                        tbody.innerHTML += `
+                        <tr>
+                            <td>${accion.ticker}</td>
+                            <td>${accion.precio_actual !== null ? accion.precio_actual.toFixed(2) + ' €' : 'N/A'}</td>
+                            <td>${accion.valor_objetivo !== null ? accion.valor_objetivo.toFixed(2) + ' €' : 'N/A'}</td>
+                            <td><span class="${upsideColor}">${accion.upside.toFixed(2)}% ${flecha}</span></td>
+                            <td><span class="badge ${badgeColor}">${señal}</span></td>
+                            <td>${accion.max_52s !== null ? accion.max_52s.toFixed(2) + ' €' : 'N/A'}</td>
+                            <td>${accion.min_52s !== null ? accion.min_52s.toFixed(2) + ' €' : 'N/A'}</td>
+                            <td>${accion.per !== null ? accion.per.toFixed(2) : 'N/A'}</td>
+                            <td>
+                                <a href="/watchlist/editar/${accion.id}/" class="btn btn-primary btn-sm">Editar</a>
+                                <a href="/watchlist/eliminar/${accion.id}/" class="btn btn-danger btn-sm">Eliminar</a>
+                            </td>
+                        </tr>`;
+                    });
+                });
+        }
+
+        actualizarTabla();  // Carga inicial
+        setInterval(actualizarTabla, 60000);  // Actualiza cada 60 segundos
+    </script>
+</div>
+{% endblock %}

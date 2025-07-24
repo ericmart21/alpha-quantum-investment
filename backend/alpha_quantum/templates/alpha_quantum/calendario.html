@@ -1,0 +1,121 @@
+{% extends 'alpha_quantum/layout.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">🗓️ Calendario Financiero</h2>
+
+    <!-- Filtros avanzados -->
+    <form method="get" class="row g-3 mb-4 align-items-end">
+        <!-- Filtro por tipo de evento -->
+        <div class="col-md-4">
+            <label for="tipo" class="form-label">Tipo de evento:</label>
+            <select name="tipo" id="tipo" class="form-select">
+                <option value="" {% if not tipo_actual %}selected{% endif %}>📂 Todos</option>
+                <option value="resultado" {% if tipo_actual=='resultado' %}selected{% endif %}>📊 Resultados</option>
+                <option value="dividendo" {% if tipo_actual=='dividendo' %}selected{% endif %}>💸 Dividendos</option>
+                <option value="transaccion" {% if tipo_actual=='transaccion' %}selected{% endif %}>🔁 Transacciones
+                </option>
+            </select>
+        </div>
+
+        <!-- Filtro por rango de tiempo -->
+        <div class="col-md-4">
+            <label for="tiempo" class="form-label">Rango de tiempo:</label>
+            <select name="tiempo" id="tiempo" class="form-select">
+                <option value="" {% if not tiempo_actual %}selected{% endif %}>⏳ Todo el tiempo</option>
+                <option value="30_dias" {% if tiempo_actual=='30_dias' %}selected{% endif %}>🗓️ Últimos 30 días
+                </option>
+                <option value="3_meses" {% if tiempo_actual=='3_meses' %}selected{% endif %}>📆 Últimos 3 meses</option>
+                <option value="6_meses" {% if tiempo_actual=='6_meses' %}selected{% endif %}>🗓️ Últimos 6 meses
+                </option>
+                <option value="1_ano" {% if tiempo_actual=='1_ano' %}selected{% endif %}>📅 Último año</option>
+            </select>
+        </div>
+
+        <!-- Filtro por ticker -->
+        <div class="col-md-3">
+            <label for="ticker" class="form-label">Filtrar por ticker:</label>
+            <input type="text" name="ticker" id="ticker" class="form-control" placeholder="Ej: AAPL"
+                value="{{ ticker_actual }}">
+        </div>
+
+        <div class="col-md-1">
+            <button type="submit" class="btn btn-primary w-100">🔍</button>
+        </div>
+    </form>
+
+
+    <!-- Tabla de eventos -->
+    {% if eventos %}
+    <table class="table table-dark table-striped table-hover mt-4">
+        <thead class="table-light text-dark">
+            <tr>
+                <th>📅 Fecha</th>
+                <th>🔖 Ticker</th>
+                <th>📝 Tipo</th>
+                <th>📌 Título</th>
+                <th>🧾 Descripción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for evento in eventos %}
+            <tr>
+                <td>{{ evento.fecha }}</td>
+                <td>{{ evento.ticker|default:"-" }}</td>
+                <td>
+                    {% if evento.tipo_evento == "resultado" %}
+                    📊 Resultados
+                    {% elif evento.tipo_evento == "dividendo" %}
+                    💸 Dividendo
+                    {% elif evento.tipo_evento == "transaccion" %}
+                    🔁 Transacción
+                    {% else %}
+                    📁 Otro
+                    {% endif %}
+                </td>
+                <td>{{ evento.titulo }}</td>
+                <td>{{ evento.descripcion }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">No hay eventos próximos para mostrar.</p>
+    {% endif %}
+
+    <!-- Calendario visual -->
+    <div id="calendar" class="mt-5 bg-white rounded shadow p-3"></div>
+</div>
+
+<!-- FullCalendar -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const calendarEl = document.getElementById('calendar');
+
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            themeSystem: 'bootstrap5',
+            height: 'auto',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,listMonth'
+            },
+            events: [
+                {% for evento in eventos %}
+                {
+                title: "{{ evento.ticker }} - {% if evento.tipo_evento == 'resultado' %}Resultados{% elif evento.tipo_evento == 'dividendo' %}Dividendo{% elif evento.tipo_evento == 'transaccion' %}Transacción{% else %}Evento{% endif %}",
+                start: "{{ evento.fecha|date:'Y-m-d' }}",
+                color: "{% if evento.tipo_evento == 'resultado' %}#0d6efd{% elif evento.tipo_evento == 'dividendo' %}#198754{% elif evento.tipo_evento == 'transaccion' %}#ffc107{% else %}#6c757d{% endif %}"
+            }{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+            ]
+        });
+
+    calendar.render();
+    });
+</script>
+{% endblock %}

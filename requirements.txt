@@ -1,0 +1,32 @@
+# Framework principal
+Django>=4.2
+
+# Django REST Framework
+djangorestframework>=3.14
+
+# Peticiones HTTP
+requests>=2.32
+
+# Visualización y gráficos
+matplotlib>=3.8
+plotly>=5.20
+
+# API financiera (si usas alguna)
+yfinance>=0.2.37  # Si usas datos de Yahoo Finance (alternativa a requests manual)
+
+# Parsing y manipulación de HTML/JSON
+beautifulsoup4>=4.12
+lxml>=4.9
+
+# Soporte a pandas/numpy si haces cálculo financiero
+pandas>=2.2
+numpy>=1.26
+
+# Seguridad y control de entorno (opcional)
+python-decouple>=3.8
+
+# Soporte a CORS si usas React o frontend separado
+django-cors-headers>=4.3
+
+# Si planeas usar frontend con Django API
+whitenoise>=6.6

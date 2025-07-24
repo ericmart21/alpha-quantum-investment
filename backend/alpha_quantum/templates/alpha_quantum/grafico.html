@@ -1,0 +1,134 @@
+
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Rentabilidad de la Cartera</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 2rem;
+        }
+
+        h2 {
+            color: #2c3e50;
+        }
+
+        #filtros button {
+            margin-right: 10px;
+            padding: 5px 10px;
+        }
+
+        canvas {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>📈 Rentabilidad Total de la Cartera</h2>
+
+    {% if rentabilidad_total < 0 %}
+        <p><strong style="color:red">Pérdida Total:</strong> {{ ganancia_total|floatformat:2 }} €</p>
+        <p><strong style="color:red">Rentabilidad Total:</strong> {{ rentabilidad_total|floatformat:2 }} %</p>
+    {% else %}
+        <p><strong style="color:green">Ganancia Total:</strong> {{ ganancia_total|floatformat:2 }} €</p>
+        <p><strong style="color:green">Rentabilidad Total:</strong> {{ rentabilidad_total|floatformat:2 }} %</p>
+    {% endif %}
+
+    <div id="filtros">
+        <button data-dias="365">1 Año</button>
+        <button data-dias="180">6 meses</button>
+        <button data-dias="90">3 meses</button>
+        <button data-dias="1">1 día</button>
+        <button data-dias="0">Todo</button>
+    </div>
+
+    <canvas id="rentabilidadChart" width="400" height="200"></canvas>
+
+    <script>
+        const etiquetas = JSON.parse('{{ etiquetas|escapejs }}');
+        const serieGanancia = JSON.parse('{{ serieGanancia|escapejs }}');
+        const serieRentab = JSON.parse('{{ serieRentab|escapejs }}');
+
+        const ctx = document.getElementById('rentabilidadChart').getContext('2d');
+        const grafico = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: etiquetas,
+                datasets: [
+                    {
+                        label: 'Ganancia Total (€)',
+                        data: serieGanancia,
+                        yAxisID: 'y',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Rentabilidad Total (%)',
+                        data: serieRentab,
+                        yAxisID: 'y1',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Rentabilidad Total de la Cartera'
+                    },
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Ganancia (€)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        title: {
+                            display: true,
+                            text: 'Rentabilidad (%)'
+                        }
+                    }
+                }
+            }
+        });
+
+        document.querySelectorAll('#filtros button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const dias = parseInt(btn.dataset.dias);
+                if (dias === 0) {
+                    grafico.data.labels = etiquetas;
+                    grafico.data.datasets[0].data = serieGanancia;
+                    grafico.data.datasets[1].data = serieRentab;
+                } else {
+                    const desde = etiquetas.length - dias;
+                    grafico.data.labels = etiquetas.slice(desde);
+                    grafico.data.datasets[0].data = serieGanancia.slice(desde);
+                    grafico.data.datasets[1].data = serieRentab.slice(desde);
+                }
+                grafico.update();
+            });
+        });
+    </script>
+
+</body>
+</html>

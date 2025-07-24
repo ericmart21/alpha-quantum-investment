@@ -1,0 +1,107 @@
+{% extends "alpha_quantum/layout.html" %}
+{% load static %}
+{% block title %}Mi Cartera{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4 fw-bold text-center">📋 Mi Cartera de Inversión</h2>
+
+    {% if user.is_authenticated %}
+    <!-- Tabla de la cartera -->
+    <div class="table-responsive">
+        <table id="tabla-cartera" class="table table-dark table-hover align-middle text-center">
+            <thead class="table-secondary text-dark">
+                <tr>
+                    <th>Ticker</th>
+                    <th>Precio Compra</th>
+                    <th>Precio Actual</th>
+                    <th>Cantidad</th>
+                    <th>Valor Total (€)</th>
+                    <th>Rentabilidad (€)</th>
+                    <th>Rentabilidad (%)</th>
+                    <th>% del Total</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Gráfico de distribución -->
+    <div class="my-5">
+        <h4 class="text-center">Distribución de la Cartera</h4>
+        <canvas id="graficoDistribucion" height="300"></canvas>
+    </div>
+    {% else %}
+    <div class="alert alert-warning text-center">
+        Debes <a href="{% url 'login' %}" class="alert-link">iniciar sesión</a> para ver tu cartera de inversión.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if user.is_authenticated %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const res = await fetch("/api/cartera/");
+        const data = await res.json();
+
+        const body = document.querySelector("#tabla-cartera tbody");
+        body.innerHTML = ""; // limpiar
+
+        data.acciones.forEach(a => {
+            const fila = document.createElement("tr");
+            fila.innerHTML = `
+                <td>${a.ticker}</td>
+                <td>${a.precio_compra}</td>
+                <td>${a.precio_actual}</td>
+                <td>${a.cantidad}</td>
+                <td>${a.valor_total}</td>
+                <td>${a.rentabilidad_eur}</td>
+                <td>${a.rentabilidad_pct}%</td>
+                <td>${a.porcentaje_total}%</td>
+                <td>
+                    ${parseFloat(a.rentabilidad_eur) > 0
+                        ? '<span class="badge bg-success">Ganancia</span>'
+                        : parseFloat(a.rentabilidad_eur) < 0
+                            ? '<span class="badge bg-danger">Pérdida</span>'
+                            : '<span class="badge bg-secondary">Neutro</span>'
+                    }
+                </td>`;
+            body.appendChild(fila);
+        });
+
+        const labels = data.acciones.map(a => a.nombre);
+        const valores = data.acciones.map(a => parseFloat(a.valor_total));
+
+        new Chart(document.getElementById("graficoDistribucion"), {
+            type: "pie",
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: valores,
+                    backgroundColor: [
+                        "#3498db", "#2ecc71", "#e67e22", "#9b59b6",
+                        "#e74c3c", "#f1c40f", "#95a5a6", "#16a085"
+                    ]
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#fff' }
+                    }
+                }
+            }
+        });
+    } catch (err) {
+        console.error("Error al cargar la cartera:", err);
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

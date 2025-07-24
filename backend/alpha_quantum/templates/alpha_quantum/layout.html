@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Alpha Quantum Investment{% endblock %}</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+
+    <!-- Estilo personalizado -->
+    <style>
+        body {
+            background-color: #111;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .navbar {
+            background-color: #1c1c1c;
+        }
+
+        .navbar .navbar-brand {
+            font-weight: bold;
+            color: #0dcaf0 !important;
+        }
+
+        .navbar .nav-link {
+            color: #ddd !important;
+            margin-right: 10px;
+        }
+
+        .navbar .nav-link:hover {
+            color: #fff !important;
+        }
+
+        .dropdown-menu {
+            background-color: #1f1f1f;
+            border: none;
+        }
+
+        .dropdown-item {
+            color: #eee;
+        }
+
+        .dropdown-item:hover {
+            background-color: #333;
+            color: #0dcaf0;
+        }
+
+        footer {
+            background-color: #1c1c1c;
+            color: #aaa;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        main {
+            flex-grow: 1;
+            padding: 2rem;
+        }
+
+        .table thead {
+            background-color: #0dcaf0;
+            color: #000;
+        }
+
+        .table tbody tr:hover {
+            background-color: #222;
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- Navbar superior -->
+<nav class="navbar navbar-expand-lg navbar-dark px-3">
+    <a class="navbar-brand" href="{% url 'index' %}">Alpha Quantum</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse justify-content-between" id="navbarContent">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item"><a class="nav-link" href="{% url 'index' %}"><i class="bi bi-house"></i> Inicio</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}"><i class="bi bi-graph-up"></i> Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'cartera' %}"><i class="bi bi-briefcase"></i> Cartera</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'resumen_cartera' %}"><i class="bi bi-clipboard-data"></i> Resumen</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'ver_watchlist' %}"><i class="bi bi-eye"></i> Watchlist</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'agregar_accion' %}"><i class="bi bi-plus-circle"></i> Añadir acción</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'noticias' %}">Noticias</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'fundamental' %}">Análisis Fundamental</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'calendario' %}">Calendario</a></li>   
+        </ul>
+
+        {% if user.is_authenticated %}
+        <ul class="navbar-nav">
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button"
+                   data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-person-circle me-1"></i> {{ user.username }}
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                    <li><a class="dropdown-item" href="#"><i class="bi bi-person"></i> Mi perfil</a></li>
+                    <li><a class="dropdown-item" href="#"><i class="bi bi-gear"></i> Configuración</a></li>
+                    <li><hr class="dropdown-divider bg-secondary"></li>
+                    <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a></li>
+                </ul>
+            </li>
+        </ul>
+        {% else %}
+        <a href="{% url 'login' %}" class="btn btn-outline-light"><i class="bi bi-box-arrow-in-right"></i> Entrar</a>
+        {% endif %}
+    </div>
+</nav>
+
+<!-- Contenido principal -->
+<main class="container-fluid">
+    {% block content %}{% endblock %}
+</main>
+
+<!-- Footer -->
+<footer>
+    <small>Proyecto de gestión de inversiones • Alpha Quantum © {{ now|date:"Y" }}</small>
+</footer>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

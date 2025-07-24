@@ -1,0 +1,171 @@
+{% extends "alpha_quantum/layout.html" %}
+{% load static %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="text-center mb-4">
+        <h2 class="fw-bold">Dashboard de Rendimiento</h2>
+    </div>
+
+    {% if user.is_authenticated %}
+    <!-- MÉTRICAS PRINCIPALES -->
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card bg-dark text-light border-secondary">
+                <div class="card-header">Valor Total</div>
+                <div class="card-body">
+                    <h3 class="card-title" id="valor_actual">Cargando...</h3>
+                    <p class="card-text">Valor actual de tu cartera</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark text-light border-secondary">
+                <div class="card-header">Total Invertido</div>
+                <div class="card-body">
+                    <h3 class="card-title" id="total_invertido">Cargando...</h3>
+                    <p class="card-text">Capital invertido en todas las operaciones</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark text-light border-secondary">
+                <div class="card-header">Rentabilidad</div>
+                <div class="card-body">
+                    <h3 class="card-title" id="rentabilidad">Cargando...</h3>
+                    <p class="card-text">Ganancia/pérdida neta</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRÁFICOS -->
+    <div class="row g-4 mt-4">
+        <div class="col-lg-6">
+            <div class="card bg-dark text-light border-secondary">
+                <div class="card-header">Evolución Histórica</div>
+                <div class="card-body">
+                    <canvas id="lineChart" height="180"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card bg-dark text-light border-secondary">
+                <div class="card-header">Distribución por Acción</div>
+                <div class="card-body">
+                    <canvas id="pieChart" height="180"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CARTERAS Y DIVIDENDOS -->
+    <div class="row mt-5">
+        <div class="col-lg-6">
+            <div class="card bg-dark text-light border-secondary">
+                <div class="card-header">Mis Carteras</div>
+                <ul class="list-group list-group-flush">
+                    {% for cartera in carteras %}
+                        <li class="list-group-item bg-dark text-light">
+                            📂 {{ cartera.nombre }} — <small class="text-muted">Usuario: {{ cartera.usuario.username }}</small>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item bg-dark text-light">No tienes carteras registradas.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card bg-dark text-light border-secondary">
+                <div class="card-header">Dividendos Recibidos</div>
+                <ul class="list-group list-group-flush">
+                    {% for dividendo in dividendos %}
+                        <li class="list-group-item bg-dark text-light">
+                            📅 {{ dividendo.fecha }} — {{ dividendo.accion.nombre }}: {{ dividendo.monto }} €
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item bg-dark text-light">No hay dividendos registrados.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Mensaje si NO está autenticado -->
+    <div class="alert alert-warning text-center">
+        Debes <a href="{% url 'login' %}" class="alert-link">iniciar sesión</a> para acceder al Dashboard de rendimiento.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if user.is_authenticated %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    function cargarDashboard() {
+        fetch("/api/dashboard/")
+            .then(response => response.json())
+            .then(data => {
+                if (!data) return;
+
+                document.getElementById("valor_actual").innerText = (data.valor_total_cartera || 0).toFixed(2) + " €";
+                document.getElementById("total_invertido").innerText = ((data.valor_total_cartera || 0) - (data.rentabilidad_total || 0)).toFixed(2) + " €";
+                document.getElementById("rentabilidad").innerText = (data.rentabilidad_total || 0).toFixed(2) + " €";
+
+                const ctxLine = document.getElementById("lineChart").getContext("2d");
+                if (window.lineChart) window.lineChart.destroy();
+                window.lineChart = new Chart(ctxLine, {
+                    type: 'line',
+                    data: {
+                        labels: data.historico_valor.map(d => d.fecha),
+                        datasets: [{
+                            label: 'Valor (€)',
+                            data: data.historico_valor.map(d => d.valor),
+                            borderColor: '#0dcaf0',
+                            backgroundColor: 'rgba(13,202,240,0.2)',
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            x: { ticks: { color: '#fff' } },
+                            y: { ticks: { color: '#fff' } }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#fff' } }
+                        }
+                    }
+                });
+
+                const ctxPie = document.getElementById("pieChart").getContext("2d");
+                if (window.pieChart) window.pieChart.destroy();
+                window.pieChart = new Chart(ctxPie, {
+                    type: 'pie',
+                    data: {
+                        labels: data.acciones_rentabilidad.map(a => a.nombre),
+                        datasets: [{
+                            data: data.acciones_rentabilidad.map(a => parseFloat(a.ganancia.toFixed(2))),
+                            backgroundColor: ['#3498db','#2ecc71','#e67e22','#9b59b6','#e74c3c','#f1c40f','#95a5a6']
+                        }]
+                    },
+                    options: {
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: '#fff' } }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error("Error al cargar datos del dashboard:", error));
+    }
+
+    cargarDashboard();
+    setInterval(cargarDashboard, 60000);
+});
+</script>
+{% endif %}
+{% endblock %}

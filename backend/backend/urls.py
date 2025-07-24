@@ -1,0 +1,9 @@
+# backend/backend/urls.py
+
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('', include('alpha_quantum.urls')),  # Incluye todas las rutas de tu app
+]

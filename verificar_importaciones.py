@@ -1,0 +1,36 @@
+import os
+import shutil
+
+RUTA_BASE = '.'  # Directorio raíz del proyecto
+IMPORT_INCORRECTO = 'from django.db.migrations import Migration'
+IMPORT_CORRECTO = 'from django.db.migrations import Migration'
+
+def reparar_importaciones():
+    for carpeta_raiz, _, archivos in os.walk(RUTA_BASE):
+        for archivo in archivos:
+            if archivo.endswith('.py'):
+                ruta_completa = os.path.join(carpeta_raiz, archivo)
+                
+                with open(ruta_completa, 'r', encoding='utf-8') as f:
+                    lineas = f.readlines()
+
+                modificado = False
+                nuevas_lineas = []
+                for linea in lineas:
+                    if IMPORT_INCORRECTO in linea:
+                        print(f"❌ Corrigiendo en: {ruta_completa}")
+                        linea = linea.replace(IMPORT_INCORRECTO, IMPORT_CORRECTO)
+                        modificado = True
+                    nuevas_lineas.append(linea)
+
+                if modificado:
+                    # Crea una copia de seguridad
+                    shutil.copyfile(ruta_completa, ruta_completa + '.bak')
+
+                    # Escribe el archivo corregido
+                    with open(ruta_completa, 'w', encoding='utf-8') as f:
+                        f.writelines(nuevas_lineas)
+                    print(f"✅ Archivo corregido: {ruta_completa}")
+
+if __name__ == '__main__':
+    reparar_importaciones()

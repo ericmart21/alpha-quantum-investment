@@ -1,0 +1,54 @@
+{% extends "alpha_quantum/layout.html" %}
+{% load static %}
+{% block title %}Agregar Nueva Acción{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="text-center mb-4">
+        <h2 class="fw-bold text-light">Agregar Nueva Acción</h2>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card bg-dark text-light border-secondary shadow-lg">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="id_nombre" class="form-label">Nombre</label>
+                            <input type="text" name="nombre" id="id_nombre" class="form-control bg-dark text-light border-secondary" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_ticker" class="form-label">Ticker</label>
+                            <input type="text" name="ticker" id="id_ticker" class="form-control bg-dark text-light border-secondary" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_cantidad" class="form-label">Cantidad</label>
+                            <input type="number" step="any" name="cantidad" id="id_cantidad" class="form-control bg-dark text-light border-secondary" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_precio_compra" class="form-label">Precio de Compra</label>
+                            <input type="number" step="any" name="precio_compra" id="id_precio_compra" class="form-control bg-dark text-light border-secondary" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_fecha" class="form-label">Fecha</label>
+                            <input type="date" name="fecha" id="id_fecha" class="form-control bg-dark text-light border-secondary" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100 fw-bold">Guardar</button>
+                    </form>
+
+                    <div class="mt-3 text-center">
+                        <a href="{% url 'index' %}" class="text-decoration-none text-info">&larr; Volver al inicio</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

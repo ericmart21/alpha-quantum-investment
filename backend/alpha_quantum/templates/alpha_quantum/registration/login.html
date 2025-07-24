@@ -1,0 +1,35 @@
+{% extends "alpha_quantum/layout.html" %}
+{% load static %}
+
+{% block title %}Iniciar Sesión | Alpha Quantum{% endblock %}
+
+{% block content %}
+<div class="container col-md-6 mt-5">
+    <h2 class="mb-4 text-center text-info">Iniciar sesión</h2>
+    <form method="post" class="bg-dark p-4 rounded shadow">
+        {% csrf_token %}
+        
+        {% if form.errors %}
+        <div class="alert alert-danger text-center py-2">
+            Usuario o contraseña incorrectos.
+        </div>
+        {% endif %}
+        
+        <div class="mb-3">
+            {{ form.username.label_tag }}
+            {{ form.username }}
+        </div>
+        
+        <div class="mb-4">
+            {{ form.password.label_tag }}
+            {{ form.password }}
+        </div>
+        
+        <button type="submit" class="btn btn-primary w-100">Entrar</button>
+
+        <div class="text-end mt-2">
+            ¿No tienes cuenta? <a href="{% url 'register' %}">Regístrate</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

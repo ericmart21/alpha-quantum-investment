@@ -8,13 +8,12 @@
     <form method="get" class="row g-3 mb-4 align-items-end">
         <!-- Filtro por tipo de evento -->
         <div class="col-md-4">
-            <label for="tipo" class="form-label">Tipo de evento:</label>
-            <select name="tipo" id="tipo" class="form-select">
+            <label for="tipo_evento" class="form-label">Tipo de evento:</label>
+            <select name="tipo_evento" id="tipo" class="form-select">
                 <option value="" {% if not tipo_actual %}selected{% endif %}>📂 Todos</option>
-                <option value="resultado" {% if tipo_actual=='resultado' %}selected{% endif %}>📊 Resultados</option>
-                <option value="dividendo" {% if tipo_actual=='dividendo' %}selected{% endif %}>💸 Dividendos</option>
-                <option value="transaccion" {% if tipo_actual=='transaccion' %}selected{% endif %}>🔁 Transacciones
-                </option>
+                <option value="resultado" {% if tipo_actual == 'resultado' %}selected{% endif %}>📊 Resultados</option>
+                <option value="dividendo" {% if tipo_actual == 'dividendo' %}selected{% endif %}>💸 Dividendos</option>
+                <option value="transaccion" {% if tipo_actual == 'transaccion' %}selected{% endif %}>🔁 Transacciones</option>
             </select>
         </div>
 
@@ -23,27 +22,23 @@
             <label for="tiempo" class="form-label">Rango de tiempo:</label>
             <select name="tiempo" id="tiempo" class="form-select">
                 <option value="" {% if not tiempo_actual %}selected{% endif %}>⏳ Todo el tiempo</option>
-                <option value="30_dias" {% if tiempo_actual=='30_dias' %}selected{% endif %}>🗓️ Últimos 30 días
-                </option>
-                <option value="3_meses" {% if tiempo_actual=='3_meses' %}selected{% endif %}>📆 Últimos 3 meses</option>
-                <option value="6_meses" {% if tiempo_actual=='6_meses' %}selected{% endif %}>🗓️ Últimos 6 meses
-                </option>
-                <option value="1_ano" {% if tiempo_actual=='1_ano' %}selected{% endif %}>📅 Último año</option>
+                <option value="30_dias" {% if tiempo_actual == '30_dias' %}selected{% endif %}>🗓️ Últimos 30 días</option>
+                <option value="3_meses" {% if tiempo_actual == '3_meses' %}selected{% endif %}>📆 Últimos 3 meses</option>
+                <option value="6_meses" {% if tiempo_actual == '6_meses' %}selected{% endif %}>🗓️ Últimos 6 meses</option>
+                <option value="1_ano" {% if tiempo_actual == '1_ano' %}selected{% endif %}>📅 Último año</option>
             </select>
         </div>
 
         <!-- Filtro por ticker -->
         <div class="col-md-3">
             <label for="ticker" class="form-label">Filtrar por ticker:</label>
-            <input type="text" name="ticker" id="ticker" class="form-control" placeholder="Ej: AAPL"
-                value="{{ ticker_actual }}">
+            <input type="text" name="ticker" id="ticker" class="form-control" placeholder="Ej: AAPL" value="{{ ticker_actual }}">
         </div>
 
         <div class="col-md-1">
             <button type="submit" class="btn btn-primary w-100">🔍</button>
         </div>
     </form>
-
 
     <!-- Tabla de eventos -->
     {% if eventos %}
@@ -64,13 +59,13 @@
                 <td>{{ evento.ticker|default:"-" }}</td>
                 <td>
                     {% if evento.tipo_evento == "resultado" %}
-                    📊 Resultados
+                        📊 Resultados
                     {% elif evento.tipo_evento == "dividendo" %}
-                    💸 Dividendo
+                        💸 Dividendo
                     {% elif evento.tipo_evento == "transaccion" %}
-                    🔁 Transacción
+                        🔁 Transacción
                     {% else %}
-                    📁 Otro
+                        📁 Otro
                     {% endif %}
                 </td>
                 <td>{{ evento.titulo }}</td>
@@ -80,7 +75,7 @@
         </tbody>
     </table>
     {% else %}
-    <p class="text-muted">No hay eventos próximos para mostrar.</p>
+    <p class="text-muted">No hay eventos para mostrar con los filtros seleccionados.</p>
     {% endif %}
 
     <!-- Calendario visual -->
@@ -107,15 +102,15 @@
             events: [
                 {% for evento in eventos %}
                 {
-                title: "{{ evento.ticker }} - {% if evento.tipo_evento == 'resultado' %}Resultados{% elif evento.tipo_evento == 'dividendo' %}Dividendo{% elif evento.tipo_evento == 'transaccion' %}Transacción{% else %}Evento{% endif %}",
-                start: "{{ evento.fecha|date:'Y-m-d' }}",
-                color: "{% if evento.tipo_evento == 'resultado' %}#0d6efd{% elif evento.tipo_evento == 'dividendo' %}#198754{% elif evento.tipo_evento == 'transaccion' %}#ffc107{% else %}#6c757d{% endif %}"
-            }{% if not forloop.last %}, {% endif %}
-        {% endfor %}
+                    title: "{{ evento.ticker }} - {% if evento.tipo_evento == 'resultado' %}Resultados{% elif evento.tipo_evento == 'dividendo' %}Dividendo{% elif evento.tipo_evento == 'transaccion' %}Transacción{% else %}Evento{% endif %}",
+                    start: "{{ evento.fecha|date:'Y-m-d' }}",
+                    color: "{% if evento.tipo_evento == 'resultado' %}#0d6efd{% elif evento.tipo_evento == 'dividendo' %}#198754{% elif evento.tipo_evento == 'transaccion' %}#ffc107{% else %}#6c757d{% endif %}"
+                }{% if not forloop.last %},{% endif %}
+                {% endfor %}
             ]
         });
 
-    calendar.render();
+        calendar.render();
     });
 </script>
 {% endblock %}

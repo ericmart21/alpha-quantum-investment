@@ -1,8 +1,30 @@
 {% extends 'alpha_quantum/layout.html' %}
-
 {% block content %}
-<div class="container mt-5">
-    <h2>📰 Noticias Económicas</h2>
-    <p>Próximamente aparecerán aquí las noticias relacionadas con tu cartera y mercado.</p>
+<div class="container mt-4">
+    <h2>📰 Noticias del Mercado</h2>
+
+    <!-- Filtro por categoría -->
+    <form method="get" class="mb-4">
+        <label class="form-label">Filtrar por categoría:</label>
+        <select name="categoria" class="form-select w-auto d-inline" onchange="this.form.submit()">
+            {% for cat in categorias %}
+                <option value="{{ cat }}" {% if cat == categoria_actual %}selected{% endif %}>
+                    {{ cat|capfirst }}
+                </option>
+            {% endfor %}
+        </select>
+    </form>
+
+    <!-- Lista de noticias -->
+    {% for noticia in noticias %}
+        <div class="card mb-3 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">{{ noticia.headline }}</h5>
+                <p class="card-text">{{ noticia.summary|truncatewords:30 }}</p>
+                <p class="card-text"><small class="text-muted">{{ noticia.datetime|date:"d M Y H:i" }}</small></p>
+                <a href="{{ noticia.url }}" target="_blank" class="btn btn-primary">Leer más</a>
+            </div>
+        </div>
+    {% endfor %}
 </div>
 {% endblock %}

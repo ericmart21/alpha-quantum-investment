@@ -183,3 +183,12 @@ def obtener_eventos_financieros_alpha_vantage(ticker, user):
     except Exception as e:
         print(f"❌ Error obteniendo eventos financieros: {e}")
 
+
+FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
+
+def obtener_noticias_relevantes():
+    url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_API_KEY}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()  # lista de noticias
+    return []

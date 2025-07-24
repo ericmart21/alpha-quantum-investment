@@ -658,3 +658,24 @@ def eventos_api(request):
         })
 
     return JsonResponse({"eventos": eventos})
+
+FINNHUB_API_KEY = 'd1vp4b1r01qmbi8pd5e0d1vp4b1r01qmbi8pd5eg'
+
+@login_required
+def noticias(request):
+    categoria = request.GET.get("categoria", "general")  # por defecto: general
+    categorias_validas = ["general", "forex", "crypto", "merger", "technology"]
+
+    if categoria not in categorias_validas:
+        categoria = "general"
+
+    url = f"https://finnhub.io/api/v1/news?category={categoria}&token={FINNHUB_API_KEY}"
+    response = requests.get(url)
+
+    noticias = response.json() if response.status_code == 200 else []
+
+    return render(request, "alpha_quantum/noticias.html", {
+        "noticias": noticias,
+        "categoria_actual": categoria,
+        "categorias": categorias_validas
+    })

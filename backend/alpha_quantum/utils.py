@@ -183,12 +183,47 @@ def obtener_eventos_financieros_alpha_vantage(ticker, user):
     except Exception as e:
         print(f"❌ Error obteniendo eventos financieros: {e}")
 
+import requests
+from django.conf import settings
 
-FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
 
-def obtener_noticias_relevantes():
-    url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_API_KEY}"
+def obtener_datos_fundamentales_alpha_vantage(ticker):
+    api_key = settings.ALPHA_VANTAGE_API_KEY
+    url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={api_key}"
+    
     response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()  # lista de noticias
-    return []
+    data = response.json()
+
+    print("DEBUG - Respuesta Alpha Vantage:", data)
+
+    if "Note" in data:
+        return {"error": "Límite de peticiones alcanzado. Inténtalo más tarde."}
+
+    if not data or "Name" not in data:
+        return None
+
+    return {
+        "nombre": data.get("Name"),
+        "sector": data.get("Sector"),
+        "industria": data.get("Industry"),
+        "pais": data.get("Country"),
+        "capitalizacion": data.get("MarketCapitalization"),
+        "empleados": data.get("FullTimeEmployees"),
+        "PER": data.get("PERatio"),
+        "PEG": data.get("PEGRatio"),
+        "ROE": data.get("ReturnOnEquityTTM"),
+        "ROA": data.get("ReturnOnAssetsTTM"),
+        "EPS": data.get("EPS"),
+        "deuda_equity": data.get("DebtEquityRatio"),
+        "dividendo": data.get("DividendYield")
+    }
+
+
+from .models.propiedad_alquilada import PropiedadAlquiler
+
+def actualizar_meses_hipoteca():
+    propiedades = PropiedadAlquiler.objects.all()
+    for p in propiedades:
+        if p.meses_restantes_hipoteca > 0:
+            p.meses_restantes_hipoteca -= 1
+            p.save()

@@ -19,6 +19,7 @@ from .models import Accion, Cartera
 from alpha_quantum.utils import actualizar_historico
 import json
 from datetime import datetime
+from django.http import HttpResponse
 
 
 def index(request):
@@ -28,28 +29,28 @@ def index(request):
 
 
 def agregar_accion(request):
-    if request.method == 'POST':
-        nombre = request.POST.get('nombre')
-        ticker = request.POST.get('ticker')
-        cantidad = request.POST.get('cantidad')
-        precio_compra = request.POST.get('precio_compra')
-        fecha_str = request.POST.get('fecha')
+    if request.method == "POST":
+        nombre = request.POST["nombre"]
+        ticker = request.POST["ticker"]
+        cantidad = int(request.POST["cantidad"])
+        precio_compra = float(request.POST["precio_compra"])
+        fecha_str = request.POST.get("fecha")
+        if not fecha_str:
+            return HttpResponse("Debes introducir una fecha.", status=400)
 
         try:
-            # Convertir string a objeto date
             fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-        except (ValueError, TypeError):
-            return render(request, 'alpha_quantum/agregar.html', {
-                'error': 'Fecha inválida. Usa el formato correcto YYYY-MM-DD.'
-            })
+        except ValueError:
+            return HttpResponse("Formato de fecha inválido.", status=400)
 
-        cartera = Cartera.objects.first()
-        if not cartera:
-            return render(request, 'alpha_quantum/agregar.html', {
-                'error': 'No hay ninguna cartera creada.'
-            })
+        cartera, _ = Cartera.objects.get_or_create(
+            usuario=request.user,
+            nombre="Cartera Principal"
+        )
 
+        # Crear acción
         Accion.objects.create(
+            user=request.user,
             nombre=nombre,
             ticker=ticker,
             cantidad=cantidad,
@@ -57,9 +58,10 @@ def agregar_accion(request):
             fecha=fecha,
             cartera=cartera
         )
-        return redirect('index')
-        
-    return render(request, 'alpha_quantum/agregar.html')
+
+        return redirect("index")
+
+    return render(request, "alpha_quantum/agregar.html")
 
 
 def dashboard(request):
@@ -679,3 +681,140 @@ def noticias(request):
         "categoria_actual": categoria,
         "categorias": categorias_validas
     })
+
+from .utils import obtener_datos_fundamentales_alpha_vantage
+
+
+def analisis_fundamental(request):
+    datos = None
+    ticker = request.GET.get('ticker')
+
+    if ticker:
+        datos = obtener_datos_fundamentales_alpha_vantage(ticker.upper())
+        print("DEBUG - Datos parseados:", datos)  # <-- PRINT PARA VERIFICAR
+
+    return render(request, 'alpha_quantum/fundamental.html', {
+        'datos': datos,
+        'ticker': ticker
+    })
+
+from decimal import Decimal
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+
+from .models.cashflow import CashFlow
+from .models.propiedad_alquilada import PropiedadAlquiler
+from .models.prestamo import Prestamo
+
+from .forms import CashFlowForm, PropiedadAlquilerForm, PrestamoForm
+
+
+@login_required
+def cashflow_dashboard(request):
+    user = request.user
+
+    registros = CashFlow.objects.filter(user=user).order_by('-date')
+    ingresos = registros.filter(category='ingreso')
+    gastos = registros.filter(category='gasto')
+    total_ingresos = sum(i.amount for i in ingresos)
+    total_gastos = sum(g.amount for g in gastos)
+
+    propiedades = PropiedadAlquiler.objects.filter(user=user)
+    ingresos_alquiler = sum(p.ingreso_mensual for p in propiedades)
+    gastos_alquiler = sum(p.hipoteca_mensual + p.gastos_mantenimiento for p in propiedades)
+
+    prestamos = Prestamo.objects.filter(user=user)
+    gastos_prestamos = sum(p.cuota_mensual for p in prestamos)
+
+    balance = (
+        Decimal(total_ingresos)
+        - Decimal(total_gastos)
+        + Decimal(ingresos_alquiler)
+        - Decimal(gastos_alquiler)
+        - Decimal(gastos_prestamos)
+    )
+
+    context = {
+        'registros': registros,
+        'total_ingresos': total_ingresos,
+        'total_gastos': total_gastos,
+        'total_gastos_alquiler': gastos_alquiler, 
+        'balance_total': balance,                  
+        'propiedades': propiedades,
+        'ingresos_alquiler': ingresos_alquiler,
+        'prestamos': prestamos,
+        'gastos_prestamos': gastos_prestamos,
+        'ingreso_form': CashFlowForm(initial={'category': 'ingreso'}),
+        'gasto_form': CashFlowForm(initial={'category': 'gasto'}),
+        'propiedad_form': PropiedadAlquilerForm(),
+        'prestamo_form': PrestamoForm(),
+    }
+
+    return render(request, 'alpha_quantum/cashflow/flujo_de_caja.html', context)
+
+
+@login_required
+def agregar_ingreso(request):
+    if request.method == 'POST':
+        form = CashFlowForm(request.POST)
+        if form.is_valid():
+            ingreso = form.save(commit=False)
+            ingreso.user = request.user
+            ingreso.category = 'ingreso'
+            ingreso.save()
+    return redirect('flujo_de_caja')
+
+
+@login_required
+def agregar_gasto(request):
+    if request.method == 'POST':
+        form = CashFlowForm(request.POST)
+        if form.is_valid():
+            gasto = form.save(commit=False)
+            gasto.user = request.user
+            gasto.category = 'gasto'
+            gasto.save()
+    return redirect('flujo_de_caja')
+
+
+@login_required
+def editar_registro(request, pk):
+    registro = get_object_or_404(CashFlow, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = CashFlowForm(request.POST, instance=registro)
+        if form.is_valid():
+            form.save()
+            return redirect('flujo_de_caja')
+    else:
+        form = CashFlowForm(instance=registro)
+
+    return render(request, 'alpha_quantum/cashflow/editar_registro.html', {'form': form})
+
+
+@login_required
+def agregar_propiedad(request):
+    if request.method == 'POST':
+        form = PropiedadAlquilerForm(request.POST)
+        if form.is_valid():
+            propiedad = form.save(commit=False)
+            propiedad.user = request.user
+            propiedad.save()
+    return redirect('flujo_de_caja')
+
+def agregar_prestamo(request):
+    if request.method == 'POST':
+        form = PrestamoForm(request.POST)
+        if form.is_valid():
+            prestamo = form.save(commit=False)
+            prestamo.usuario = request.user
+            prestamo.monto_total = prestamo.cuota_mensual * prestamo.meses_restantes
+            prestamo.save()
+            return redirect('flujo_de_caja')
+    else:
+        form = PrestamoForm()
+    return render(request, 'flujo/partials/formulario_prestamo.html', {'form': form})
+
+@login_required
+@property
+def beneficio_neto(self):
+    return self.ingreso_mensual - self.hipoteca_mensual - self.gastos_mantenimiento

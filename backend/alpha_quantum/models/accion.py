@@ -1,7 +1,9 @@
 from django.db import models
 from .cartera import Cartera
+from django.conf import settings
 
 class Accion(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='acciones')
     nombre = models.CharField(max_length=100)
     ticker = models.CharField(max_length=10)
     cantidad = models.IntegerField()

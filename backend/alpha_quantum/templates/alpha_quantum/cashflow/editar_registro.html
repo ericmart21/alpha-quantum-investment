@@ -1,0 +1,12 @@
+{% extends 'alpha_quantum/layout.html' %}
+{% block content %}
+<div class="container mt-4">
+  <h2>Editar Registro</h2>
+  <form method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Actualizar</button>
+    <a href="{% url 'cashflow_dashboard' %}" class="btn btn-secondary">Cancelar</a>
+  </form>
+</div>
+{% endblock %}

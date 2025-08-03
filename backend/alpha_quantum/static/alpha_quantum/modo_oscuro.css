@@ -1,0 +1,77 @@
+/* Fondo general oscuro */
+body {
+    background-color: #121212;
+    color: #ffffff;
+}
+
+/* Fondo de tarjetas/resumen */
+.card, .card-body {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    border: 1px solid #333;
+}
+
+/* Tabla con fondo negro y texto blanco */
+table.table {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    border-color: #444;
+}
+
+table.table thead {
+    background-color: #222;
+    color: #ffffff;
+}
+
+table.table tbody tr {
+    background-color: #2a2a2a;
+    color: #ffffff;
+}
+
+table.table tbody tr td {
+    color: #ffffff;
+}
+
+table.table tbody tr:hover {
+    background-color: #333;
+}
+
+/* Botones */
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+/* Modales */
+.modal-content {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    border: 1px solid #444;
+}
+
+/* Campos de formulario */
+input.form-control,
+select.form-control,
+textarea.form-control {
+    background-color: #2e2e2e;
+    color: #ffffff;
+    border: 1px solid #555;
+}
+
+/* Evitar colores del navegador */
+input.form-control::placeholder {
+    color: #aaa;
+}

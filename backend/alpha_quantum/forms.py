@@ -76,3 +76,45 @@ class WatchlistForm(forms.ModelForm):
             'valor_objetivo': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 175.00', 'step': '0.01'}),
             'recomendacion': forms.Select(attrs={'class': 'form-select bg-dark text-light border-secondary'}),
         }
+
+from django import forms
+from .models.cashflow import CashFlow 
+from .models.prestamo import Prestamo
+from .models.propiedad_alquilada import PropiedadAlquiler
+
+class CashFlowForm(forms.ModelForm):
+    class Meta:
+        model = CashFlow
+        fields = ['date', 'amount', 'category', 'tipo_ingreso', 'description']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control'}),
+            'category': forms.Select(attrs={'class': 'form-control'}),
+            'tipo_ingreso': forms.Select(attrs={'class': 'form-control'}),
+            'description': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+class PropiedadAlquilerForm(forms.ModelForm):
+    class Meta:
+        model = PropiedadAlquiler
+        fields = ['nombre', 'ingreso_mensual', 'hipoteca_mensual', 'meses_restantes_hipoteca', 'gastos_mantenimiento']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'ingreso_mensual': forms.NumberInput(attrs={'class': 'form-control'}),
+            'hipoteca_mensual': forms.NumberInput(attrs={'class': 'form-control'}),
+            'meses_restantes_hipoteca': forms.NumberInput(attrs={'class': 'form-control'}),
+            'gastos_mantenimiento': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+
+
+class PrestamoForm(forms.ModelForm):
+    class Meta:
+        model = Prestamo
+        fields = ['nombre', 'cuota_mensual', 'meses_restantes', 'fecha_inicio', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'cuota_mensual': forms.NumberInput(attrs={'class': 'form-control'}),
+            'meses_restantes': forms.NumberInput(attrs={'class': 'form-control'}),
+            'fecha_inicio': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }

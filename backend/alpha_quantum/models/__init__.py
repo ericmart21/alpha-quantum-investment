@@ -7,3 +7,7 @@ from .analisis_fundamental import AnalisisFundamental
 from .operacion import Operacion
 from .alarma import AlarmaPrecio
 from .watchlist import Watchlist
+from .cashflow import CashFlow
+from .prestamo import Prestamo
+from .propiedad_alquilada import PropiedadAlquiler
+from .cashflow import CashFlow

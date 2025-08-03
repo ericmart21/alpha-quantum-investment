@@ -7,7 +7,7 @@ from .views import (
     index, agregar_accion, dashboard,
     DashboardDataView, resumen_cartera,
     grafico_rentabilidad, RentabilidadAPI,
-    CarteraAPIView, cartera, editar_accion, watchlist_data
+    CarteraAPIView, cartera, editar_accion, watchlist_data, analisis_fundamental, cashflow_dashboard, agregar_propiedad, agregar_prestamo
 )
 
 urlpatterns = [
@@ -31,8 +31,14 @@ urlpatterns = [
     path('watchlist/data/', watchlist_data, name='watchlist_data'),
     path('api/watchlist/precios/', views.precios_watchlist_api, name='api_watchlist_precios'),
     path('noticias/', views.noticias, name='noticias'),
-    path('fundamental/', views.fundamental, name='fundamental'),
+    path('fundamental/', views.analisis_fundamental, name='fundamental'),
     path('calendario/', views.calendario, name='calendario'),
     path("api/eventos/", views.eventos_api, name="eventos_api"),
-]
+    path('flujo-de-caja/', views.cashflow_dashboard, name='flujo_de_caja'),
+    path('agregar-ingreso/', views.agregar_ingreso, name='agregar_ingreso'),
+    path('agregar-gasto/', views.agregar_gasto, name='agregar_gasto'),
+    path('editar-registro/<int:pk>/', views.editar_registro, name='editar_registro'),
+    path('agregar_propiedad/', views.agregar_propiedad, name='agregar_propiedad'),
+    path('agregar_prestamo/', views.agregar_prestamo, name='agregar_prestamo'),
 
+]

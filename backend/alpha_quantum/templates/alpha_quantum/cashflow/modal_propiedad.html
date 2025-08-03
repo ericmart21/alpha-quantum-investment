@@ -1,0 +1,20 @@
+<!-- MODAL PROPIEDAD -->
+<div class="modal fade" id="modalPropiedad" tabindex="-1" aria-labelledby="modalPropiedadLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalPropiedadLabel">Añadir Propiedad</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form method="post" action="{% url 'agregar_propiedad' %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          {{ propiedad_form.as_p }}
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-warning">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

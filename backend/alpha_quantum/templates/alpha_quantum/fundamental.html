@@ -2,7 +2,39 @@
 
 {% block content %}
 <div class="container mt-5">
-    <h2>📊 Análisis Fundamental</h2>
-    <p>En esta sección verás el análisis detallado de tus acciones: PER, ROE, BPA, deuda, etc.</p>
+    <h2 class="mb-4">📊 Análisis Fundamental</h2>
+
+    <!-- Formulario de búsqueda por ticker -->
+    <form method="get" class="row g-3 mb-4">
+        <div class="col-auto">
+            <input type="text" name="ticker" class="form-control" placeholder="Introduce un ticker (ej: AAPL)"
+                value="{{ ticker|default:'' }}">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">🔍 Buscar</button>
+        </div>
+    </form>
+
+    {% if datos %}
+    <div class="datos">
+        <h3>{{ datos.nombre }}</h3>
+        <ul>
+            <li><strong>Sector:</strong> {{ datos.sector }}</li>
+            <li><strong>Industria:</strong> {{ datos.industria }}</li>
+            <li><strong>País:</strong> {{ datos.pais }}</li>
+            <li><strong>Capitalización:</strong> {{ datos.capitalizacion }}</li>
+            <li><strong>Empleados:</strong> {{ datos.empleados }}</li>
+            <li><strong>PER:</strong> {{ datos.PER }}</li>
+            <li><strong>PEG:</strong> {{ datos.PEG }}</li>
+            <li><strong>ROE:</strong> {{ datos.ROE }}</li>
+            <li><strong>ROA:</strong> {{ datos.ROA }}</li>
+            <li><strong>EPS:</strong> {{ datos.EPS }}</li>
+            <li><strong>Deuda/Equity:</strong> {{ datos.deuda_equity }}</li>
+            <li><strong>Dividendo:</strong> {{ datos.dividendo }}</li>
+        </ul>
+    </div>
+    {% else %}
+    <p class="text-light">No se encontraron datos para el ticker ingresado.</p>
+    {% endif %}
 </div>
 {% endblock %}

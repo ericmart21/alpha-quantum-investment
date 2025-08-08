@@ -701,13 +701,16 @@ def analisis_fundamental(request):
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-
 from .models.cashflow import CashFlow
 from .models.propiedad_alquilada import PropiedadAlquiler
 from .models.prestamo import Prestamo
-
 from .forms import CashFlowForm, PropiedadAlquilerForm, PrestamoForm
+from collections import defaultdict
+from django.utils.dateformat import DateFormat
+import json
 
+
+from calendar import monthrange
 
 @login_required
 def cashflow_dashboard(request):
@@ -716,6 +719,7 @@ def cashflow_dashboard(request):
     registros = CashFlow.objects.filter(user=user).order_by('-date')
     ingresos = registros.filter(category='ingreso')
     gastos = registros.filter(category='gasto')
+
     total_ingresos = sum(i.amount for i in ingresos)
     total_gastos = sum(g.amount for g in gastos)
 
@@ -726,6 +730,9 @@ def cashflow_dashboard(request):
     prestamos = Prestamo.objects.filter(user=user)
     gastos_prestamos = sum(p.cuota_mensual for p in prestamos)
 
+    beneficio_total_propiedades = sum(p.beneficio_neto for p in propiedades)
+    balance_pendiente_prestamos = sum(p.balance_actual for p in prestamos)
+
     balance = (
         Decimal(total_ingresos)
         - Decimal(total_gastos)
@@ -734,12 +741,81 @@ def cashflow_dashboard(request):
         - Decimal(gastos_prestamos)
     )
 
+    # === 📊 Datos por mes reales ===
+    ingresos_por_mes = defaultdict(float)
+    gastos_por_mes = defaultdict(float)
+
+    for r in registros:
+        mes = r.date.strftime('%Y-%m')
+        if r.category == 'ingreso':
+            ingresos_por_mes[mes] += float(r.amount)
+        elif r.category == 'gasto':
+            gastos_por_mes[mes] += float(r.amount)
+
+    # === 📅 Construcción real de fechas mes a mes ===
+    fecha_inicio = datetime.today().replace(day=1)
+    meses_simulados = 36  # 3 años
+    todos_meses = []
+
+    for i in range(meses_simulados):
+        mes = fecha_inicio.month + i
+        año = fecha_inicio.year + (mes - 1) // 12
+        mes_final = ((mes - 1) % 12) + 1
+        fecha_mes = datetime(año, mes_final, 1)
+        todos_meses.append(fecha_mes.strftime('%Y-%m'))
+
+    # === 🧮 Simulación de hipotecas y préstamos ===
+    hipotecas_por_mes = defaultdict(float)
+    prestamos_por_mes = defaultdict(float)
+
+    for propiedad in propiedades:
+        cuota = float(propiedad.hipoteca_mensual)
+        for i in range(propiedad.meses_restantes_hipoteca):
+            if i < meses_simulados:
+                clave = todos_meses[i]
+                hipotecas_por_mes[clave] += cuota
+
+    for prestamo in prestamos:
+        cuota = float(prestamo.cuota_mensual)
+        for i in range(prestamo.meses_restantes):
+            if i < meses_simulados:
+                clave = todos_meses[i]
+                prestamos_por_mes[clave] += cuota
+
+    # === 📈 Datos por mes final ===
+    valores_ingresos = []
+    valores_gastos = []
+    valores_balance = []
+    valores_deuda_total = []
+    valores_balance_cuentas = []
+    patrimonio_neto = []
+
+    balance_acumulado = 0
+
+    for mes in todos_meses:
+        ingreso = float(ingresos_por_mes.get(mes, 0) + ingresos_alquiler)
+        gasto = float(gastos_por_mes.get(mes, 0))
+        gasto_hipoteca = hipotecas_por_mes.get(mes, 0)
+        gasto_prestamo = prestamos_por_mes.get(mes, 0)
+        deuda_mes = gasto_hipoteca + gasto_prestamo
+        
+        balance_mes = ingreso - gasto - deuda_mes
+        balance_acumulado += balance_mes
+        patrimonio = balance_acumulado - deuda_mes
+
+        valores_ingresos.append(ingreso)
+        valores_gastos.append(gasto + deuda_mes)
+        valores_balance.append(balance_mes)
+        valores_deuda_total.append(deuda_mes)
+        valores_balance_cuentas.append(balance_acumulado)
+        patrimonio_neto.append(patrimonio)
+
     context = {
         'registros': registros,
         'total_ingresos': total_ingresos,
         'total_gastos': total_gastos,
-        'total_gastos_alquiler': gastos_alquiler, 
-        'balance_total': balance,                  
+        'total_gastos_alquiler': gastos_alquiler,
+        'balance_total': balance,
         'propiedades': propiedades,
         'ingresos_alquiler': ingresos_alquiler,
         'prestamos': prestamos,
@@ -748,9 +824,22 @@ def cashflow_dashboard(request):
         'gasto_form': CashFlowForm(initial={'category': 'gasto'}),
         'propiedad_form': PropiedadAlquilerForm(),
         'prestamo_form': PrestamoForm(),
+        'beneficio_total_propiedades': beneficio_total_propiedades,
+        'balance_pendiente_prestamos': balance_pendiente_prestamos,
+
+        # === Datos para el gráfico ===
+        'labels_grafico': json.dumps(todos_meses),
+        'valores_ingresos': json.dumps(valores_ingresos),
+        'valores_gastos': json.dumps(valores_gastos),
+        'valores_balance': json.dumps(valores_balance),
+        'valores_deuda_total': json.dumps(valores_deuda_total),
+        'valores_patrimonio_neto': json.dumps(patrimonio_neto),
+        'valores_balance_cuentas': json.dumps(valores_balance_cuentas),
+        'valores_hipoteca_restante': json.dumps(valores_deuda_total),
     }
 
     return render(request, 'alpha_quantum/cashflow/flujo_de_caja.html', context)
+
 
 
 @login_required

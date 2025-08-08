@@ -1,47 +1,36 @@
 {% extends "alpha_quantum/layout.html" %}
 {% block content %}
 <style>
-    /* Fondo y color de la cabecera */
     .table thead th {
         background-color: #1a1a1a !important;
         color: white !important;
         border-color: #444 !important;
     }
-
-    /* Filas impares (striped) */
     .table-striped tbody tr:nth-of-type(odd) td {
         background-color: #242424 !important;
         color: white !important;
     }
-
-    /* Filas pares */
     .table-striped tbody tr:nth-of-type(even) td {
         background-color: #1a1a1a !important;
         color: white !important;
     }
-
-    /* Hover fila */
     .table-striped tbody tr:hover td {
         background-color: #333 !important;
     }
-
-    /* Enlaces dentro de la tabla */
     .table td a {
         color: #fff !important;
     }
-
-    /* Bordes y formularios */
     .form-control,
     .form-select {
         background-color: #1e1e1e;
         color: #fff;
         border-color: #444;
     }
-
     .form-control::placeholder {
         color: #aaa;
     }
 </style>
+
 <div class="container mt-4">
     <h2>Flujo de Caja Mensual</h2>
     <div class="mb-3">
@@ -51,6 +40,8 @@
         <button class="btn btn-outline-warning me-2" onclick="filtrar('propiedades')">Propiedades</button>
         <button class="btn btn-outline-info me-2" onclick="filtrar('prestamos')">Préstamos</button>
     </div>
+
+    <!-- Tarjetas resumen -->
     <div class="row text-center mb-4">
         <div class="col-md-3 mb-2">
             <div class="card shadow-sm border-0" style="background-color: #e8f5e9;">
@@ -88,7 +79,33 @@
                 </div>
             </div>
         </div>
+
+        <div class="col-md-6 mb-2">
+            <div class="card shadow-sm border-0" style="background-color: #e0f7fa;">
+                <div class="card-body">
+                    <i class="fas fa-chart-line fa-2x text-info mb-2"></i>
+                    <h6 class="card-title fw-bold text-info">Beneficio Neto Propiedades</h6>
+                    <p class="card-text fs-5">{{ beneficio_total_propiedades }} €</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-2">
+            <div class="card shadow-sm border-0" style="background-color: #f3e5f5;">
+                <div class="card-body">
+                    <i class="fas fa-university fa-2x text-purple mb-2"></i>
+                    <h6 class="card-title fw-bold text-purple">Balance Pendiente Préstamos</h6>
+                    <p class="card-text fs-5">{{ balance_pendiente_prestamos }} €</p>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Gráfico -->
+    <div class="mt-5 mb-5">
+        <canvas id="graficoCashflow"></canvas>
+    </div>
+
+    <!-- Tabla Ingresos / Gastos -->
     <div id="ingresos" class="seccion">
         <h4>Ingresos / Gastos</h4>
         <button class="btn btn-success mb-2" data-bs-toggle="modal" data-bs-target="#modalIngreso">+ Añadir Ingreso</button>
@@ -118,6 +135,8 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Tabla Propiedades -->
     <div id="propiedades" class="seccion mt-5">
         <div class="d-flex justify-content-between align-items-center">
             <h4>Propiedades en Alquiler</h4>
@@ -148,6 +167,8 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Tabla Préstamos -->
     <div id="prestamos" class="seccion mt-5">
         <div class="d-flex justify-content-between align-items-center">
             <h4>Préstamos Personales</h4>
@@ -176,19 +197,128 @@
     </div>
 </div>
 
-<!-- Modales necesarios -->
+<!-- Modales -->
 {% include 'alpha_quantum/cashflow/modales_ingreso_gasto.html' %}
 {% include 'alpha_quantum/cashflow/modal_propiedad.html' %}
 {% include 'alpha_quantum/cashflow/modal_prestamo.html' %}
 
+<!-- ✅ Cargar Chart.js primero -->
+<!-- ✅ Cargar Chart.js primero -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- ✅ Crear gráfico después de cargar la librería -->
 <script>
-    function filtrar(seccion) {
-        const secciones = ['ingresos', 'propiedades', 'prestamos'];
-        secciones.forEach(id => {
-            document.getElementById(id).style.display = (seccion === 'todos' || seccion === id) ? 'block' : 'none';
-        });
-    }
+    const ctx = document.getElementById('graficoCashflow').getContext('2d');
+
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ labels_grafico|safe }},
+            datasets: [
+                {
+                    label: 'Ingresos',
+                    data: {{ valores_ingresos|safe }},
+                    borderColor: 'rgba(76, 175, 80, 1)',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'rgba(76, 175, 80, 1)',
+                },
+                {
+                    label: 'Gastos',
+                    data: {{ valores_gastos|safe }},
+                    borderColor: 'rgba(244, 67, 54, 1)',
+                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'rgba(244, 67, 54, 1)',
+                },
+                {
+                    label: 'Balance',
+                    data: {{ valores_balance|safe }},
+                    borderColor: 'rgba(33, 150, 243, 1)',
+                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'rgba(33, 150, 243, 1)',
+                },
+                {
+                    label: 'Hipoteca Restante',
+                    data: {{ valores_hipoteca_restante|safe }},
+                    borderColor: 'rgba(156, 39, 176, 1)',  // Púrpura
+                    backgroundColor: 'rgba(156, 39, 176, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'rgba(156, 39, 176, 1)',
+                },
+                {
+                    label: 'Balance de Cuentas',
+                    data: {{ valores_balance_cuentas|safe }},
+                    borderColor: 'rgba(255, 193, 7, 1)',  // Amarillo
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'rgba(255, 193, 7, 1)',
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#fff',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        }
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: '#222',
+                    titleColor: '#fff',
+                    bodyColor: '#fff'
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#fff' },
+                    grid: { color: '#444' }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#fff' },
+                    grid: { color: '#444' }
+                }
+            }
+        }
+    });
 </script>
 
+
+<!-- Bootstrap al final -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}

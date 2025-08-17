@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import CustomUser, Cartera, Accion, Dividendo, PrecioHistorico, AnalisisFundamental, Operacion, AlarmaPrecio, Prestamo, PropiedadAlquiler
 from .models.watchlist import Watchlist
 from .models.calendario import EventoFinanciero
+from .models.historico import HistoricoCartera
 admin.site.register(CustomUser)
 admin.site.register(Cartera)
 admin.site.register(Accion)

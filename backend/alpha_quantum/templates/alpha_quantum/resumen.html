@@ -1,0 +1,41 @@
+{% extends "alpha_quantum/layout.html" %}
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-4">Resumen de Cartera</h2>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="card"><div class="card-body">
+      <h6>Total invertido</h6><h3>{{ total_invertido|floatformat:2 }} €</h3>
+    </div></div></div>
+    <div class="col-md-4"><div class="card"><div class="card-body">
+      <h6>Valor actual</h6><h3>{{ valor_actual|floatformat:2 }} €</h3>
+    </div></div></div>
+    <div class="col-md-4"><div class="card"><div class="card-body">
+      <h6>Rentabilidad</h6><h3>{{ rentabilidad|floatformat:2 }} €</h3>
+    </div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Posiciones</div>
+    <div class="card-body p-0">
+      <table class="table table-dark table-striped mb-0">
+        <thead>
+          <tr><th>Ticker</th><th>Cantidad</th><th>Precio compra</th><th>Precio actual</th></tr>
+        </thead>
+        <tbody>
+        {% for a in acciones %}
+          <tr>
+            <td>{{ a.ticker }}</td>
+            <td>{{ a.cantidad }}</td>
+            <td>{{ a.precio_compra }}</td>
+            <td>{{ a.precio_actual|default:"—" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="text-center text-muted">Sin posiciones</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,20 +1,20 @@
 from django.db import models
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
+from django.conf import settings
+from decimal import Decimal
 
 class PropiedadAlquiler(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    nombre = models.CharField(max_length=100)
-    ingreso_mensual = models.DecimalField(max_digits=10, decimal_places=2)
-    hipoteca_mensual = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    meses_restantes_hipoteca = models.PositiveIntegerField(default=0)
-    gastos_mantenimiento = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    nombre = models.CharField(max_length=120)
+    ingreso_mensual = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    hipoteca_mensual = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    gastos_mantenimiento = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    meses_restantes_hipoteca = models.IntegerField(default=0)
+
+
     @property
-    def beneficio_neto(self):
-        return self.ingreso_mensual - self.hipoteca_mensual - self.gastos_mantenimiento
+    def beneficio_neto(self) -> Decimal:
+        """Ingreso - hipoteca - mantenimiento"""
+        return (self.ingreso_mensual or 0) - (self.hipoteca_mensual or 0) - (self.gastos_mantenimiento or 0)
 
     def __str__(self):
         return self.nombre
-

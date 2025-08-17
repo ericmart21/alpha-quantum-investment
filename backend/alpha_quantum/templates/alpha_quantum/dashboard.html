@@ -3,169 +3,315 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
+<style>
+  .card{background-color:#111827;border-color:#374151}
+  .card-header{background:#0b1220;color:#e5e7eb;border-bottom:1px solid #374151}
+  .card-body{color:#e5e7eb}
+  .table thead th{color:#e5e7eb;border-color:#374151}
+  .table tbody td{color:#e5e7eb;border-color:#1f2937}
+  .list-group-item{background:#111827;color:#e5e7eb;border-color:#1f2937}
+  .btn-outline-light{--bs-btn-color:#e5e7eb;--bs-btn-border-color:#6b7280}
+  .form-control,.form-select{background:#0f172a;color:#e5e7eb;border-color:#374151}
+</style>
+
 <div class="container-fluid">
-    <div class="text-center mb-4">
-        <h2 class="fw-bold">Dashboard de Rendimiento</h2>
+  <div class="text-center mb-4">
+    <h2 class="fw-bold">Dashboard de Rendimiento</h2>
+  </div>
+
+  {% if user.is_authenticated %}
+  <!-- KPIs -->
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div class="card border-secondary">
+        <div class="card-header">Valor Total</div>
+        <div class="card-body">
+          <h3 class="card-title">{{ valor_total_cartera|default:0|floatformat:2 }} €</h3>
+          <p class="card-text">Valor actual de tu cartera</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-secondary">
+        <div class="card-header">Total Invertido</div>
+        <div class="card-body">
+          <h3 class="card-title">{{ total_invertido|default:0|floatformat:2 }} €</h3>
+          <p class="card-text">Capital invertido en todas las operaciones</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-secondary">
+        <div class="card-header">Rentabilidad</div>
+        <div class="card-body">
+          <h3 class="card-title">{{ rentabilidad_total|default:0|floatformat:2 }} €</h3>
+          <p class="card-text">Ganancia/pérdida neta</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gráficos -->
+  <div class="row g-4 mt-4">
+    <div class="col-lg-6">
+      <div class="card border-secondary h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Evolución Histórica</span>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Rango">
+            <button class="btn btn-outline-light" data-dias="30">30D</button>
+            <button class="btn btn-outline-light" data-dias="90">90D</button>
+            <button class="btn btn-outline-light" data-dias="365">1A</button>
+            <button class="btn btn-outline-light" data-dias="3650">Todo</button>
+          </div>
+        </div>
+        <div class="card-body" style="height:360px;">
+          <canvas id="lineChart"></canvas>
+        </div>
+      </div>
     </div>
 
-    {% if user.is_authenticated %}
-    <!-- MÉTRICAS PRINCIPALES -->
-    <div class="row g-4">
-        <div class="col-md-4">
-            <div class="card bg-dark text-light border-secondary">
-                <div class="card-header">Valor Total</div>
-                <div class="card-body">
-                    <h3 class="card-title" id="valor_actual">Cargando...</h3>
-                    <p class="card-text">Valor actual de tu cartera</p>
-                </div>
-            </div>
+    <div class="col-lg-6">
+      <div class="card border-secondary h-100">
+        <div class="card-header">Distribución por Acción</div>
+        <div class="card-body" style="height:360px;">
+          <canvas id="pieChart"></canvas>
         </div>
-        <div class="col-md-4">
-            <div class="card bg-dark text-light border-secondary">
-                <div class="card-header">Total Invertido</div>
-                <div class="card-body">
-                    <h3 class="card-title" id="total_invertido">Cargando...</h3>
-                    <p class="card-text">Capital invertido en todas las operaciones</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card bg-dark text-light border-secondary">
-                <div class="card-header">Rentabilidad</div>
-                <div class="card-body">
-                    <h3 class="card-title" id="rentabilidad">Cargando...</h3>
-                    <p class="card-text">Ganancia/pérdida neta</p>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
+  </div>
 
-    <!-- GRÁFICOS -->
-    <div class="row g-4 mt-4">
-        <div class="col-lg-6">
-            <div class="card bg-dark text-light border-secondary">
-                <div class="card-header">Evolución Histórica</div>
-                <div class="card-body">
-                    <canvas id="lineChart" height="180"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card bg-dark text-light border-secondary">
-                <div class="card-header">Distribución por Acción</div>
-                <div class="card-body">
-                    <canvas id="pieChart" height="180"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- CARTERAS Y DIVIDENDOS -->
-    <div class="row mt-5">
-        <div class="col-lg-6">
-            <div class="card bg-dark text-light border-secondary">
-                <div class="card-header">Mis Carteras</div>
-                <ul class="list-group list-group-flush">
-                    {% for cartera in carteras %}
-                        <li class="list-group-item bg-dark text-light">
-                            📂 {{ cartera.nombre }} — <small class="text-muted">Usuario: {{ cartera.usuario.username }}</small>
-                        </li>
-                    {% empty %}
-                        <li class="list-group-item bg-dark text-light">No tienes carteras registradas.</li>
-                    {% endfor %}
-                </ul>
-            </div>
+  <!-- Dividendos y Transacciones -->
+  <div class="row g-4 mt-4">
+    <!-- Dividendos -->
+    <div class="col-lg-6">
+      <div class="card border-secondary h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Dividendos</span>
+          <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalDividendo">
+            + Añadir dividendo
+          </button>
         </div>
 
-        <div class="col-lg-6">
-            <div class="card bg-dark text-light border-secondary">
-                <div class="card-header">Dividendos Recibidos</div>
-                <ul class="list-group list-group-flush">
-                    {% for dividendo in dividendos %}
-                        <li class="list-group-item bg-dark text-light">
-                            📅 {{ dividendo.fecha }} — {{ dividendo.accion.nombre }}: {{ dividendo.monto }} €
-                        </li>
-                    {% empty %}
-                        <li class="list-group-item bg-dark text-light">No hay dividendos registrados.</li>
-                    {% endfor %}
-                </ul>
-            </div>
+        <div class="table-responsive">
+          <table class="table table-dark table-striped table-hover mb-0">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Ticker</th>
+                <th class="text-end">Por acción</th>
+                <th>Nota</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for d in dividendos %}
+              <tr>
+                <td>{{ d.fecha|date:"Y-m-d" }}</td>
+                <td>{{ d.accion.ticker }}</td>
+                <td class="text-end">{{ d.monto|default:0|floatformat:4 }} €</td>
+                <td>{{ d.nota }}</td>
+                <td class="text-end">
+                  <a href="{% url 'dividendo_editar' d.id %}" class="btn btn-sm btn-outline-light">Editar</a>
+                  <form action="{% url 'dividendo_borrar' d.id %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Borrar dividendo?');">
+                      Borrar
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" class="text-center text-muted">Sin dividendos.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
+      </div>
     </div>
 
-    {% else %}
-    <!-- Mensaje si NO está autenticado -->
-    <div class="alert alert-warning text-center">
-        Debes <a href="{% url 'login' %}" class="alert-link">iniciar sesión</a> para acceder al Dashboard de rendimiento.
+    <!-- Transacciones -->
+    <div class="col-lg-6">
+      <div class="card border-secondary h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Transacciones</span>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#modalTransaccion">
+              + Añadir
+            </button>
+            <a class="btn btn-sm btn-outline-light" href="{% url 'transacciones_export_csv' %}">Exportar CSV</a>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-dark table-striped table-hover mb-0">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Ticker</th>
+                <th>Tipo</th>
+                <th class="text-end">Cantidad</th>
+                <th class="text-end">Precio</th>
+                <th class="text-end">Comisión</th>
+                <th class="text-end">Importe</th>
+                <!-- ✅ NUEVAS COLUMNAS -->
+                <th class="text-end">Beneficio neto</th>
+                <th class="text-end">Rentabilidad</th>
+                <th>Nota</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in transacciones %}
+              <tr>
+                <td>{{ t.fecha|date:"Y-m-d" }}</td>
+                <td>{{ t.ticker }}</td>
+                <td class="text-capitalize">{{ t.get_tipo_display }}</td>
+                <td class="text-end">{{ t.cantidad|default:0|floatformat:2 }}</td>
+                <td class="text-end">{{ t.precio|default:0|floatformat:2 }}</td>
+                <td class="text-end">{{ t.comision|default:0|floatformat:2 }}</td>
+                <td class="text-end">{{ t.importe|default:0|floatformat:2 }} €</td>
+
+                <!-- ✅ NUEVAS CELDAS (muestran '-' si no hay dato aún) -->
+                <td class="text-end">
+                  {% if t.beneficio is not None %}
+                    {{ t.beneficio|floatformat:2 }} €
+                  {% elif t.pnl is not None %}
+                    {{ t.pnl|floatformat:2 }} €
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if t.rentabilidad is not None %}
+                    {{ t.rentabilidad|floatformat:2 }} %
+                  {% elif t.rentab_pct is not None %}
+                    {{ t.rentab_pct|floatformat:2 }} %
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+
+                <td>{{ t.nota }}</td>
+                <td class="text-end">
+                  <a href="{% url 'transaccion_editar' t.id %}" class="btn btn-sm btn-outline-light">Editar</a>
+                  <form action="{% url 'transaccion_borrar' t.id %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Borrar transacción?');">
+                      Borrar
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="11" class="text-center text-muted">Sin transacciones.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-    {% endif %}
+  </div>
+
+  {% else %}
+  <div class="alert alert-warning text-center mt-4">
+    Debes <a href="{% url 'login' %}" class="alert-link">iniciar sesión</a> para acceder al Dashboard de rendimiento.
+  </div>
+  {% endif %}
 </div>
+
+<!-- Modales (creación) -->
+{% include 'alpha_quantum/dashboard/_modal_dividendo.html' %}
+{% include 'alpha_quantum/dashboard/_modal_transaccion.html' %}
 {% endblock %}
 
 {% block extra_js %}
 {% if user.is_authenticated %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-    function cargarDashboard() {
-        fetch("/api/dashboard/")
-            .then(response => response.json())
-            .then(data => {
-                if (!data) return;
+  // ====== Datos de contexto (fallbacks) ======
+  const HIST_LABELS_CTX = {{ hist_labels|default:"[]"|safe }};
+  const HIST_VALUES_CTX = {{ hist_values|default:"[]"|safe }};
+  const DIST_LABELS_CTX = {{ dist_labels|default:"[]"|safe }};
+  const DIST_VALUES_CTX = {{ dist_values|default:"[]"|safe }};
 
-                document.getElementById("valor_actual").innerText = (data.valor_total_cartera || 0).toFixed(2) + " €";
-                document.getElementById("total_invertido").innerText = ((data.valor_total_cartera || 0) - (data.rentabilidad_total || 0)).toFixed(2) + " €";
-                document.getElementById("rentabilidad").innerText = (data.rentabilidad_total || 0).toFixed(2) + " €";
+  // ====== Línea: evolución histórica ======
+  let lineChart;
+  function renderLinea(labels, values){
+    const ctx = document.getElementById('lineChart').getContext('2d');
+    if(lineChart) lineChart.destroy();
+    lineChart = new Chart(ctx, {
+      type:'line',
+      data:{ labels, datasets:[{
+        label:'Ganancia (€)', data:values,
+        borderColor:'#0dcaf0', backgroundColor:'rgba(13,202,240,0.15)',
+        tension:0.3, pointRadius:0, fill:true
+      }]},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ labels:{ color:'#fff' } } },
+        scales:{
+          x:{ ticks:{ color:'#fff' }, grid:{ color:'#333' } },
+          y:{ ticks:{ color:'#fff' }, grid:{ color:'#333' } }
+        }
+      }
+    });
+  }
 
-                const ctxLine = document.getElementById("lineChart").getContext("2d");
-                if (window.lineChart) window.lineChart.destroy();
-                window.lineChart = new Chart(ctxLine, {
-                    type: 'line',
-                    data: {
-                        labels: data.historico_valor.map(d => d.fecha),
-                        datasets: [{
-                            label: 'Valor (€)',
-                            data: data.historico_valor.map(d => d.valor),
-                            borderColor: '#0dcaf0',
-                            backgroundColor: 'rgba(13,202,240,0.2)',
-                            tension: 0.3
-                        }]
-                    },
-                    options: {
-                        scales: {
-                            x: { ticks: { color: '#fff' } },
-                            y: { ticks: { color: '#fff' } }
-                        },
-                        plugins: {
-                            legend: { labels: { color: '#fff' } }
-                        }
-                    }
-                });
+  function cargarLinea(dias){
+    fetch(`/api/historico/?dias=${dias}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if(!d){ renderLinea(HIST_LABELS_CTX, HIST_VALUES_CTX); return; }
+        renderLinea(d.labels || [], d.values || []);
+      })
+      .catch(() => renderLinea(HIST_LABELS_CTX, HIST_VALUES_CTX));
+  }
 
-                const ctxPie = document.getElementById("pieChart").getContext("2d");
-                if (window.pieChart) window.pieChart.destroy();
-                window.pieChart = new Chart(ctxPie, {
-                    type: 'pie',
-                    data: {
-                        labels: data.acciones_rentabilidad.map(a => a.nombre),
-                        datasets: [{
-                            data: data.acciones_rentabilidad.map(a => parseFloat(a.ganancia.toFixed(2))),
-                            backgroundColor: ['#3498db','#2ecc71','#e67e22','#9b59b6','#e74c3c','#f1c40f','#95a5a6']
-                        }]
-                    },
-                    options: {
-                        plugins: {
-                            legend: { position: 'bottom', labels: { color: '#fff' } }
-                        }
-                    }
-                });
-            })
-            .catch(error => console.error("Error al cargar datos del dashboard:", error));
-    }
+  document.querySelectorAll('[data-dias]').forEach(btn=>{
+    btn.addEventListener('click', () => cargarLinea(btn.dataset.dias));
+  });
 
-    cargarDashboard();
-    setInterval(cargarDashboard, 60000);
-});
+  // ====== Doughnut: distribución por acción ======
+  let pieChart;
+  function cargarDistribucion(){
+    fetch("/api/cartera/")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        let labels = DIST_LABELS_CTX, valores = DIST_VALUES_CTX;
+        if(data && data.acciones){
+          labels = data.acciones.map(a=>a.ticker);
+          valores = data.acciones.map(a=>parseFloat(a.porcentaje_total));
+        }
+        const ctx = document.getElementById('pieChart').getContext('2d');
+        if(pieChart) pieChart.destroy();
+        pieChart = new Chart(ctx, {
+          type:'doughnut',
+          data:{ labels, datasets:[{
+            data: valores, borderWidth:0,
+            backgroundColor:['#3B82F6','#22C55E','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F43F5E','#84CC16','#10B981','#F97316']
+          }]},
+          options:{
+            responsive:true, maintainAspectRatio:false,
+            plugins:{
+              legend:{ position:'bottom', labels:{ color:'#fff' } },
+              tooltip:{ callbacks:{ label:(ctx)=>`${ctx.label}: ${Number(ctx.raw||0).toFixed(2)}%` } }
+            }
+          }
+        });
+      })
+      .catch(()=>{/* silencio */});
+  }
+
+  // ====== Cargas iniciales ======
+  document.addEventListener("DOMContentLoaded", ()=>{
+    renderLinea(HIST_LABELS_CTX, HIST_VALUES_CTX); // pinta lo que vino del servidor
+    cargarLinea(365);                               // y luego refresca desde API
+    cargarDistribucion();
+    setInterval(cargarDistribucion, 60000);         // refresco suave
+  });
 </script>
 {% endif %}
 {% endblock %}

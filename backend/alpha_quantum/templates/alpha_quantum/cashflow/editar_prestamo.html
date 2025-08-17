@@ -1,12 +1,12 @@
 {% extends 'alpha_quantum/layout.html' %}
 {% block content %}
 <div class="container mt-4" style="max-width:680px">
-  <h2 class="mb-3">Añadir Ingreso</h2>
+  <h2 class="mb-3">Editar Préstamo</h2>
   <form method="post" class="card p-3 bg-dark text-light border-secondary">
     {% csrf_token %}
     {{ form.as_p }}
     <div>
-      <button type="submit" class="btn btn-success">Guardar</button>
+      <button type="submit" class="btn btn-primary">Guardar</button>
       <a href="{% url 'flujo_de_caja' %}" class="btn btn-outline-light">Cancelar</a>
     </div>
   </form>

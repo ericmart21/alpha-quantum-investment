@@ -11,3 +11,5 @@ from .cashflow import CashFlow
 from .prestamo import Prestamo
 from .propiedad_alquilada import PropiedadAlquiler
 from .cashflow import CashFlow
+from .transaccion import Transaccion
+from .historico import HistoricoCartera

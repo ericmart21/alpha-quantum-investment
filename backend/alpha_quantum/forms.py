@@ -1,4 +1,5 @@
 from django import forms
+from decimal import Decimal
 from .models import Accion, Cartera
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from .models import CustomUser
@@ -77,7 +78,6 @@ class WatchlistForm(forms.ModelForm):
             'recomendacion': forms.Select(attrs={'class': 'form-select bg-dark text-light border-secondary'}),
         }
 
-from django import forms
 from .models.cashflow import CashFlow 
 from .models.prestamo import Prestamo
 from .models.propiedad_alquilada import PropiedadAlquiler
@@ -117,4 +117,108 @@ class PrestamoForm(forms.ModelForm):
             'meses_restantes': forms.NumberInput(attrs={'class': 'form-control'}),
             'fecha_inicio': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+from .models.dividendo import Dividendo
+from .models.transaccion import Transaccion
+
+class DividendoForm(forms.ModelForm):
+    class Meta:
+        model = Dividendo
+        fields = ["accion", "fecha", "monto", "nota"]
+        widgets = {
+            "accion": forms.Select(attrs={"class": "form-select"}),
+            "fecha": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "monto": forms.NumberInput(attrs={"step": "0.0001", "class": "form-control"}),
+            "nota": forms.TextInput(attrs={"class": "form-control", "placeholder": "Opcional"}),
+        }
+
+
+class TransaccionSellForm(forms.ModelForm):
+    """
+    Modal de Transacciones (SOLO VENTA).
+    - Ticker es un <select> con acciones poseídas por el usuario.
+    - Cantidad no puede superar la posición.
+    """
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)  # IMPORTANTÍSIMO
+        super().__init__(*args, **kwargs)
+
+        # Forzamos tipo = SELL y lo mostramos deshabilitado en el UI
+        self.fields["tipo"].initial = "SELL"
+        self.fields["tipo"].widget = forms.Select(
+            attrs={"class": "form-select", "disabled": "disabled"}
+        )
+
+        # Tickers poseídos (>0)
+        poseidas = (
+            Accion.objects
+            .filter(user=self.user)
+            .exclude(cantidad__lte=0)
+            .values_list("ticker", flat=True)
+        )
+        choices = [(t, t) for t in sorted(set(poseidas))]
+        self.fields["ticker"] = forms.ChoiceField(
+            choices=choices,
+            widget=forms.Select(attrs={"class": "form-select"})
+        )
+
+        # Estética
+        self.fields["cantidad"].widget = forms.NumberInput(attrs={
+            "step": "0.0001", "class": "form-control"
+        })
+        self.fields["precio"].widget = forms.NumberInput(attrs={
+            "step": "0.0001", "class": "form-control"
+        })
+        self.fields["comision"].widget = forms.NumberInput(attrs={
+            "step": "0.0001", "class": "form-control"
+        })
+        self.fields["fecha"].widget = forms.DateInput(attrs={
+            "type": "date", "class": "form-control"
+        })
+        if "nota" in self.fields:
+            self.fields["nota"].widget = forms.TextInput(attrs={"class": "form-control", "placeholder": "Opcional"})
+
+    class Meta:
+        model = Transaccion
+        fields = ["ticker", "tipo", "cantidad", "precio", "comision", "fecha", "nota"]
+
+    def clean(self):
+        cleaned = super().clean()
+        # Forzamos tipo SELL en la instancia aunque venga disabled en el form
+        cleaned["tipo"] = "SELL"
+
+        ticker = (cleaned.get("ticker") or "").upper().strip()
+        cantidad = Decimal(str(cleaned.get("cantidad") or 0))
+
+        if not self.user:
+            return cleaned
+
+        # Posición actual del usuario en ese ticker
+        pos = (
+            Accion.objects
+            .filter(user=self.user, ticker__iexact=ticker)
+            .values_list("cantidad", flat=True)
+            .first()
+        ) or Decimal("0")
+
+        if pos <= 0:
+            raise forms.ValidationError("No tienes acciones de ese ticker para vender.")
+        if cantidad > pos:
+            raise forms.ValidationError(f"No puedes vender {cantidad} si solo posees {pos} acciones.")
+
+        cleaned["ticker"] = ticker
+        return cleaned
+
+class TransaccionForm(forms.ModelForm):
+    class Meta:
+        model = Transaccion
+        fields = ["ticker", "tipo", "cantidad", "precio", "comision", "fecha"]
+        widgets = {
+            "ticker": forms.TextInput(attrs={"class": "form-control", "placeholder": "AAPL"}),
+            "tipo": forms.Select(attrs={"class": "form-select"}),  # BUY/SELL/DIV
+            "cantidad": forms.NumberInput(attrs={"step": "0.0001", "class": "form-control"}),
+            "precio": forms.NumberInput(attrs={"step": "0.0001", "class": "form-control"}),
+            "comision": forms.NumberInput(attrs={"step": "0.0001", "class": "form-control"}),
+            "fecha": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
         }

@@ -1,0 +1,47 @@
+<!-- MODAL DIVIDENDO -->
+<div class="modal fade" id="modalDividendo" tabindex="-1" aria-labelledby="modalDividendoLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalDividendoLabel">Añadir Dividendo</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <form method="post" action="{% url 'dividendo_crear' %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Acción</label>
+            <!-- Si ya pasas un DividendoForm como en propiedad: {{ dividendo_form.as_p }} -->
+            <!-- O manual: -->
+            <select name="accion" class="form-select bg-dark text-white border-secondary" required>
+              {% for a in acciones %}
+                <option value="{{ a.id }}">{{ a.ticker }} — {{ a.nombre }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Fecha de pago</label>
+              <input type="date" name="fecha" class="form-control bg-dark text-white border-secondary" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Importe por acción (€)</label>
+              <input type="number" step="0.0001" name="monto" class="form-control bg-dark text-white border-secondary" required>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <label class="form-label">Nota (opcional)</label>
+            <input name="nota" class="form-control bg-dark text-white border-secondary" placeholder="">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-warning">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

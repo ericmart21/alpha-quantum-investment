@@ -1,9 +1,8 @@
+from django.conf import settings
 from django.db import models
-from django.contrib.auth import get_user_model
 from datetime import date
-from dateutil.relativedelta import relativedelta
 
-User = get_user_model()
+User = settings.AUTH_USER_MODEL
 
 class Prestamo(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -15,11 +14,12 @@ class Prestamo(models.Model):
     activo = models.BooleanField(default=True)
 
     def total_pagado(self):
-        # Calcular meses transcurridos desde inicio
+        # (opcional, según tu lógica)
         meses_transcurridos = (date.today().year - self.fecha_inicio.year) * 12 + (date.today().month - self.fecha_inicio.month)
-        meses_pagados = max(0, meses_transcurridos - self.meses_restantes)
+        meses_pagados = max(0, min(meses_transcurridos, self.meses_restantes))
         return meses_pagados * self.cuota_mensual
 
+    @property
     def balance_actual(self):
         return self.meses_restantes * self.cuota_mensual if self.activo else 0
 

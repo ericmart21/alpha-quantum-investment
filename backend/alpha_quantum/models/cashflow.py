@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -17,7 +18,7 @@ INGRESO_CHOICES = [
 ]
 
 class CashFlow(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     date = models.DateField()
     amount = models.FloatField()
     category = models.CharField(max_length=50, choices=[('ingreso', 'Ingreso'), ('gasto', 'Gasto')])
@@ -26,3 +27,4 @@ class CashFlow(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.category} - {self.amount}€ en {self.date}"
+

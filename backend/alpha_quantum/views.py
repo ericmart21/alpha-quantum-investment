@@ -1,7 +1,7 @@
 # alpha_quantum/views.py
-
+from __future__ import annotations
 from django.shortcuts import render, redirect, get_object_or_404
-from django.utils.timezone import now, timedelta
+from django.utils.timezone import now
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -141,10 +141,14 @@ def dashboard(request):
     # 6) Listas para tabla
     dividendos = Dividendo.objects.filter(accion__user=user).select_related("accion").order_by("-fecha")
     transacciones = Transaccion.objects.filter(user=user).order_by("-fecha", "-id")
-
+    if total_invertido > 0:
+        rentabilidad_pct_total = float((rentabilidad_total / total_invertido) * Decimal('100'))
+    else:
+        rentabilidad_pct_total = 0.0
     context = {
         "valor_total_cartera": round(float(valor_actual), 2),
         "rentabilidad_total": round(float(rentabilidad_total), 2),
+        "rentabilidad_pct_total": round(float(rentabilidad_pct_total), 2),
         "total_invertido": round(float(total_invertido), 2),
         "hist_labels": json.dumps(hist_labels),
         "hist_values": json.dumps(hist_values),
@@ -155,37 +159,143 @@ def dashboard(request):
     }
     return render(request, "alpha_quantum/dashboard.html", context)
 
+from decimal import Decimal
+from datetime import date, timedelta
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.contrib.auth.decorators import login_required
+
+# ...
+
+from decimal import Decimal
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from .models import Accion
+
 @login_required
-def resumen_cartera(request):
-    user = request.user
-    acciones = Cartera.objects.filter(user=user)
+def cartera(request):
+    """
+    Vista de cartera con KPIs, tabla enriquecida y rebalanceo igual-ponderado.
+    """
+    acciones = Accion.objects.filter(user=request.user)  # <<-- IMPORTANTE filtrar por user
 
-    total_invertido = Decimal("0")
-    valor_actual_total = Decimal("0")
+    items = []
+    total_val = Decimal('0')
+    total_inv = Decimal('0')
 
-    for acc in acciones:
-        try:
-            precio_actual = obtener_precio_actual(acc.ticker)
-            if precio_actual:
-                acc.precio_actual = precio_actual
-                acc.save(update_fields=["precio_actual"])
-        except Exception as e:
-            print(f"[RESUMEN CARTERA] Error obteniendo precio para {acc.ticker}: {e}")
+    for a in acciones:
+        qty = Decimal(str(a.cantidad or 0))
+        pc  = Decimal(str(a.precio_compra or 0))
+        # si no hay precio_actual, usa precio_compra para evitar nulos
+        pa  = Decimal(str(a.precio_actual or a.precio_compra or 0))
 
-        inversion_accion = acc.cantidad * acc.precio_compra
-        valor_accion = acc.cantidad * (acc.precio_actual or acc.precio_compra)
+        inv = qty * pc
+        val = qty * pa
+        pnl = val - inv
+        rr  = (pnl / inv * Decimal('100')) if inv > 0 else Decimal('0')
 
-        total_invertido += inversion_accion
-        valor_actual_total += valor_accion
+        items.append({
+            "id": a.id,
+            "ticker": a.ticker,
+            "precio_compra": float(pc),
+            "precio_actual": float(pa),
+            "cantidad": int(qty),
+            "valor_total": float(val),
+            "pnl_eur": float(pnl),
+            "pnl_pct": float(rr),
+        })
+        total_val += val
+        total_inv += inv
 
-    rentabilidad_total = ((valor_actual_total - total_invertido) / total_invertido * 100) if total_invertido > 0 else 0
+    # % del total y KPIs
+    for it in items:
+        it["pct_total"] = float(
+            (Decimal(str(it["valor_total"])) / (total_val or Decimal('1'))) * Decimal('100')
+        )
 
-    data = {
-        "total_invertido": float(round(total_invertido, 2)),
-        "valor_actual_total": float(round(valor_actual_total, 2)),
-        "rentabilidad_total": float(round(rentabilidad_total, 2)),
+    rentab_total_eur = total_val - total_inv
+    rentab_total_pct = (rentab_total_eur / total_inv * Decimal('100')) if total_inv > 0 else Decimal('0')
+
+    # Rebalanceo igual ponderado simple
+    n = len(items) or 1
+    target = Decimal('100') / Decimal(str(n))
+    rebalance = []
+    for it in items:
+        actual = Decimal(str(it["pct_total"]))
+        diff = target - actual
+        sug = 'ok'
+        if diff > Decimal('0.25'):
+            sug = 'buy'
+        elif diff < Decimal('-0.25'):
+            sug = 'sell'
+        rebalance.append({
+            "ticker": it["ticker"],
+            "target": float(target),
+            "actual": float(actual),
+            "diff": float(diff),
+            "sug": sug,
+        })
+
+    context = {
+        "items": items,
+        "valor_actual": float(total_val),
+        "total_invertido": float(total_inv),
+        "rentab_total_eur": float(rentab_total_eur),
+        "rentab_total_pct": float(rentab_total_pct),
+        "rebalance": rebalance,
     }
-    return JsonResponse(data)
+    return render(request, "alpha_quantum/cartera.html", context)
+
+
+
+from datetime import date
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+class SparklineAPI(APIView):
+    """
+    Devuelve últimos 'days' precios para un ticker.
+    Funciona tanto si PrecioHistorico tiene un campo 'ticker' (CharField)
+    como si usa una FK 'accion' -> Accion (tu caso).
+    """
+    def get(self, request):
+        ticker = (request.GET.get("ticker") or "").strip()
+        days = int(request.GET.get("days", 30))
+        if not ticker:
+            return Response({"labels": [], "values": []})
+
+        # ¿El modelo PrecioHistorico tiene un campo 'ticker'?
+        has_ticker_field = any(
+            getattr(f, "name", None) == "ticker"
+            for f in getattr(PrecioHistorico, "_meta").get_fields()
+        )
+
+        if has_ticker_field:
+            qs = PrecioHistorico.objects.filter(
+                ticker__iexact=ticker
+            ).order_by("-fecha")[:days]
+        else:
+            # Caso habitual: FK a Accion
+            acc = Accion.objects.filter(
+                user=request.user, ticker__iexact=ticker
+            ).first()
+            if not acc:
+                return Response({"labels": [], "values": []})
+            qs = PrecioHistorico.objects.filter(
+                accion=acc
+            ).order_by("-fecha")[:days]
+
+        data = list(qs)[::-1]  # en orden cronológico ascendente
+        labels = [
+            (getattr(x, "fecha", date.today())).strftime("%Y-%m-%d")
+            for x in data
+        ]
+        # El campo de precio en tu modelo es 'valor'
+        values = [float(getattr(x, "valor", 0)) for x in data]
+
+        return Response({"labels": labels, "values": values})
+
+
 
 @login_required
 def grafico_rentabilidad(request):
@@ -623,72 +733,540 @@ def transaccion_borrar(request, pk):
     messages.success(request, "🗑️ Transacción eliminada.")
     return redirect("dashboard")
 
+#  WATCHLISTS (múltiples)
 # ===========================
-#      WATCHLIST
-# ===========================
-@login_required
-def ver_watchlist(request):
-    acciones = Watchlist.objects.filter(user=request.user)
-    acciones_context = [{
-        "id": a.id, "nombre": a.nombre, "ticker": a.ticker.upper(),
-        "precio_actual": float(a.precio_actual or 0), "valor_objetivo": float(a.valor_objetivo or 0),
-        "upside": float(a.upside or 0), "recomendacion": a.recomendacion or "N/A",
-        "max_52s": a.max_52s, "min_52s": a.min_52s, "per": a.per,
-    } for a in acciones]
-    return render(request, 'alpha_quantum/watchlist.html', { "acciones": acciones_context })
 
+import csv
+from typing import Optional, List
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError
+from django.db.models import Q, Prefetch
+from django.http import HttpResponse, JsonResponse, HttpRequest, HttpResponseRedirect
+from django.shortcuts import get_object_or_404, redirect, render
+
+# ── Modelos
+from .models.watchlist import Watchlist, WatchlistLista
+
+# ── Formularios (si los tienes). Si no, el código usa POST plano.
+try:
+    from .forms import WatchlistForm  # type: ignore
+except Exception:
+    WatchlistForm = None  # fallback si no existe
+
+# ── Utilidades para datos de mercado y lógica de recomendación
+try:
+    from .utils import obtener_datos_finnhub, calcular_upside, generar_recomendacion  # type: ignore
+except Exception:
+    # Fallbacks mínimos por si no tienes utils aún
+    def obtener_datos_finnhub(ticker: str) -> Optional[dict]:
+        return None
+
+    def calcular_upside(valor_objetivo, precio_actual) -> Optional[float]:
+        try:
+            vo = float(valor_objetivo or 0)
+            pa = float(precio_actual or 0)
+            if vo and pa:
+                return round((vo - pa) / pa * 100, 4)
+            return None
+        except Exception:
+            return None
+
+    def generar_recomendacion(upside: Optional[float]) -> Optional[str]:
+        if upside is None:
+            return None
+        if upside > 20:
+            return "COMPRAR"
+        if upside < -10:
+            return "ESPERAR"  # o "VENDER" si prefieres
+        return "REVISAR"
+
+
+# ===========================
+#   HELPERS
+# ===========================
+
+def _items_filtrados_qs(user, q: str, estado: str, orden: str):
+    """Construye el queryset de items filtrado y ordenado."""
+    ordenar_map = {
+        "ticker": "ticker", "-ticker": "-ticker",
+        "upside": "upside", "-upside": "-upside",
+        "precio": "precio_actual", "-precio": "-precio_actual",
+        "per": "per", "-per": "-per",
+    }
+
+    qs = Watchlist.objects.filter(user=user)
+    if q:
+        qs = qs.filter(Q(ticker__icontains=q) | Q(nombre__icontains=q))
+    if estado in {"COMPRAR", "REVISAR", "ESPERAR"}:
+        qs = qs.filter(recomendacion=estado)
+    qs = qs.order_by(ordenar_map.get(orden, "ticker"))
+    return qs
+
+
+def _accion_to_dict(a: Watchlist) -> dict:
+    return {
+        "id": a.id,
+        "ticker": a.ticker,
+        "nombre": a.nombre,
+        "precio_actual": float(a.precio_actual or 0),
+        "valor_objetivo": float(a.valor_objetivo or 0),
+        "upside": float(a.upside) if a.upside is not None else None,
+        "per": a.per,
+        "max_52s": a.max_52s,
+        "min_52s": a.min_52s,
+        "recomendacion": a.recomendacion or "N/A",
+    }
+
+
+# ===========================
+# WATCHLISTS (overview apilado)
+# ===========================
+import csv
+from typing import Optional, List
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError, transaction
+from django.db.models import Prefetch, Q
+from django.http import (
+    HttpRequest,
+    HttpResponse,
+    HttpResponseRedirect,
+    JsonResponse,
+)
+from django.shortcuts import get_object_or_404, redirect, render
+
+from .models.watchlist import Watchlist, WatchlistLista
+
+# (Opcional) si tienes un form, úsalo; si no, el código trabaja con POST plano.
+try:
+    from .forms import WatchlistForm  # type: ignore
+except Exception:
+    WatchlistForm = None  # fallback
+
+# Utilidades externas; fallbacks mínimos si no existen.
+try:
+    from .utils import obtener_datos_finnhub, calcular_upside, generar_recomendacion  # type: ignore
+except Exception:
+    def obtener_datos_finnhub(ticker: str):
+        return None
+
+    def calcular_upside(vo, pa):
+        try:
+            vo, pa = float(vo or 0), float(pa or 0)
+            return round((vo - pa) / pa * 100, 4) if vo and pa else None
+        except Exception:
+            return None
+
+    def generar_recomendacion(upside):
+        if upside is None:
+            return None
+        if upside > 20:
+            return "COMPRAR"
+        if upside < -10:
+            return "ESPERAR"
+        return "REVISAR"
+
+
+# ---------------------------
+# Helpers
+# ---------------------------
+def _items_queryset_base(user, q: str, estado: str, orden: str):
+    """QS base con filtros y orden para prefetch (Django lo partirá por lista_id)."""
+    ordenar_map = {
+        "ticker": "ticker",
+        "-ticker": "-ticker",
+        "upside": "upside",
+        "-upside": "-upside",
+        "precio": "precio_actual",
+        "-precio": "-precio_actual",
+        "per": "per",
+        "-per": "-per",
+    }
+    qs = (
+        Watchlist.objects.filter(user=user)
+        .only(
+            "id",
+            "lista_id",
+            "ticker",
+            "nombre",
+            "precio_actual",
+            "valor_objetivo",
+            "upside",
+            "per",
+            "max_52s",
+            "min_52s",
+            "recomendacion",
+        )
+        .order_by(ordenar_map.get(orden, "ticker"))
+    )
+    if q:
+        qs = qs.filter(Q(ticker__icontains=q) | Q(nombre__icontains=q))
+    if estado in {"COMPRAR", "REVISAR", "ESPERAR"}:
+        qs = qs.filter(recomendacion=estado)
+    return qs
+
+
+# ---------------------------
+# Overview apilado
+# ---------------------------
 @login_required
-def añadir_watchlist(request):
-    if request.method == 'POST':
-        form = WatchlistForm(request.POST)
-        if form.is_valid():
-            nueva = form.save(commit=False)
-            nueva.user = request.user
-            datos = obtener_datos_finnhub(nueva.ticker)
-            if datos:
-                nueva.precio_actual = datos['precio_actual']
-                nueva.per = datos['per']
-                nueva.max_52s = datos['max_52s']
-                nueva.min_52s = datos['min_52s']
-            if nueva.valor_objetivo and nueva.precio_actual:
-                nueva.upside = calcular_upside(nueva.valor_objetivo, nueva.precio_actual)
-                nueva.recomendacion = generar_recomendacion(nueva.upside)
-            nueva.save()
-            return redirect('ver_watchlist')
+def ver_watchlists(request: HttpRequest):
+    """
+    Muestra TODAS las watchlists del usuario, apiladas, con métricas (precio, 52s, PER, etc.).
+    """
+    q = (request.GET.get("q") or "").strip()
+    estado = request.GET.get("estado") or ""
+    orden = request.GET.get("orden") or "ticker"
+
+    items_qs = _items_queryset_base(request.user, q, estado, orden)
+
+    listas = (
+        WatchlistLista.objects.filter(user=request.user)
+        .order_by("titulo")
+        .prefetch_related(Prefetch("items", queryset=items_qs, to_attr="items_filtrados"))
+    )
+
+    total_over, total_under = 0, 0
+    listas_ctx: List[dict] = []
+
+    for l in listas:
+        acciones = []
+        for a in getattr(l, "items_filtrados", []):
+            if a.upside is not None:
+                if a.upside > 0:
+                    total_under += 1
+                elif a.upside < 0:
+                    total_over += 1
+            acciones.append(
+                {
+                    "id": a.id,
+                    "ticker": a.ticker,
+                    "nombre": a.nombre,
+                    "precio_actual": float(a.precio_actual or 0),
+                    "valor_objetivo": float(a.valor_objetivo or 0)
+                    if a.valor_objetivo is not None
+                    else None,
+                    "upside": float(a.upside) if a.upside is not None else None,
+                    "per": a.per,
+                    "max_52s": a.max_52s,
+                    "min_52s": a.min_52s,
+                    "recomendacion": a.recomendacion or "N/A",
+                }
+            )
+        listas_ctx.append(
+            {
+                "id": l.id,
+                "titulo": l.titulo,
+                "descripcion": l.descripcion,
+                "count": len(acciones),
+                "acciones": acciones,
+            }
+        )
+
+    return render(
+        request,
+        "alpha_quantum/watchlist.html",
+        {
+            "listas": listas_ctx,
+            "stats": {"over": total_over, "under": total_under},
+            "filtros": {"q": q, "estado": estado, "orden": orden},
+        },
+    )
+
+
+# ---------------------------
+# Crear lista
+# ---------------------------
+@login_required
+def crear_watchlist(request: HttpRequest):
+    if request.method != "POST":
+        return redirect("ver_watchlists")
+    titulo = (request.POST.get("titulo") or "").strip()
+    descripcion = (request.POST.get("descripcion") or "").strip() or None
+    if not titulo:
+        messages.error(request, "Debes indicar un título.")
+        return redirect("ver_watchlists")
+    try:
+        WatchlistLista.objects.create(
+            user=request.user, titulo=titulo, descripcion=descripcion
+        )
+        messages.success(request, f'Lista “{titulo}” creada.')
+    except IntegrityError:
+        messages.warning(request, f'Ya existe una lista con el título “{titulo}”.')
+    return redirect("ver_watchlists")
+
+
+# ---------------------------
+# Añadir item (siempre a la lista correcta)
+# ---------------------------
+@login_required
+@transaction.atomic
+def añadir_watchlist(request: HttpRequest, lista_id: int):
+    """
+    Guarda SIEMPRE en la lista correcta.
+    - Lee 'lista_id' del path y acepta 'lista_id' oculto en el POST (por seguridad).
+    - Permite el mismo ticker en distintas listas (unique por user+lista+ticker).
+    """
+    # Permite que un modal envíe el hidden lista_id
+    post_lista_id = request.POST.get("lista_id")
+    if post_lista_id:
+        try:
+            lista_id = int(post_lista_id)
+        except Exception:
+            pass
+
+    lista = get_object_or_404(WatchlistLista, pk=lista_id, user=request.user)
+
+    if request.method != "POST":
+        messages.info(request, "Nada que guardar.")
+        return redirect("ver_watchlists")
+
+    # Si tienes formulario, podrías usarlo; mantenemos ruta POST plano para robustez
+    ticker = (request.POST.get("ticker") or "").upper().strip()
+    nombre = (request.POST.get("nombre") or "").strip() or None
+    valor_objetivo_raw = (request.POST.get("valor_objetivo") or "").strip()
+
+    if not ticker:
+        messages.error(request, "Debes indicar un ticker.")
+        return redirect("ver_watchlists")
+
+    obj, created = Watchlist.objects.get_or_create(
+        user=request.user, lista=lista, ticker=ticker, defaults={"nombre": nombre}
+    )
+
+    if not created and nombre:
+        obj.nombre = nombre
+
+    if valor_objetivo_raw:
+        try:
+            obj.valor_objetivo = float(valor_objetivo_raw)
+        except Exception:
+            messages.warning(request, "El valor objetivo no es válido. Se ignora.")
+
+    datos = obtener_datos_finnhub(ticker)
+    if datos:
+        obj.precio_actual = datos.get("precio_actual")
+        obj.per = datos.get("per")
+        obj.max_52s = datos.get("max_52s")
+        obj.min_52s = datos.get("min_52s")
+
+    if obj.valor_objetivo and obj.precio_actual:
+        obj.upside = calcular_upside(obj.valor_objetivo, obj.precio_actual)
+        obj.recomendacion = generar_recomendacion(obj.upside)
+
+    obj.save()
+
+    if created:
+        messages.success(request, f'✅ {ticker} añadida a “{lista.titulo}”.')
     else:
-        form = WatchlistForm()
-    return render(request, 'alpha_quantum/formulario_watchlist.html', {'form': form})
+        messages.info(
+            request, f'ℹ️ {ticker} ya estaba en “{lista.titulo}”, se actualizó su información.'
+        )
 
-@login_required
-def eliminar_accion_watchlist(request, pk):
-    accion = get_object_or_404(Watchlist, pk=pk, user=request.user)
-    if request.method == 'POST':
-        accion.delete()
-        messages.success(request, f"🗑️ Acción '{accion.ticker.upper()}' eliminada correctamente.")
-        return redirect('ver_watchlist')
-    return render(request, 'alpha_quantum/confirmar_eliminar.html', {'accion': accion})
+    return redirect("ver_watchlists")
 
+
+# ---------------------------
+# Editar / eliminar item
+# ---------------------------
 @login_required
-def editar_accion_watchlist(request, pk):
-    accion = get_object_or_404(Watchlist, pk=pk, user=request.user)
-    if request.method == 'POST':
-        form = WatchlistForm(request.POST, instance=accion)
-        if form.is_valid():
-            accion = form.save(commit=False)
+def editar_accion_watchlist(request: HttpRequest, lista_id: int, item_id: int):
+    lista = get_object_or_404(WatchlistLista, pk=lista_id, user=request.user)
+    accion = get_object_or_404(Watchlist, pk=item_id, user=request.user, lista=lista)
+
+    if request.method == "POST":
+        if WatchlistForm:
+            form = WatchlistForm(request.POST, instance=accion)
+            if form.is_valid():
+                acc = form.save(commit=False)
+                datos = obtener_datos_finnhub(acc.ticker)
+                if datos:
+                    acc.precio_actual = datos.get("precio_actual")
+                    acc.per = datos.get("per")
+                    acc.max_52s = datos.get("max_52s")
+                    acc.min_52s = datos.get("min_52s")
+                if acc.valor_objetivo and acc.precio_actual:
+                    acc.upside = calcular_upside(acc.valor_objetivo, acc.precio_actual)
+                    acc.recomendacion = generar_recomendacion(acc.upside)
+                acc.save()
+                messages.success(request, f"✅ {acc.ticker} actualizada.")
+                return redirect("ver_watchlists")
+        else:
+            # POST plano
+            accion.nombre = (request.POST.get("nombre") or "").strip() or accion.nombre
+            vo = (request.POST.get("valor_objetivo") or "").strip()
+            if vo:
+                try:
+                    accion.valor_objetivo = float(vo)
+                except Exception:
+                    messages.warning(request, "Valor objetivo inválido. Se ignora.")
             datos = obtener_datos_finnhub(accion.ticker)
             if datos:
-                accion.precio_actual = datos['precio_actual']
-                accion.per = datos['per']
-                accion.max_52s = datos['max_52s']
-                accion.min_52s = datos['min_52s']
-            accion.upside = calcular_upside(accion.valor_objetivo, accion.precio_actual)
-            accion.recomendacion = generar_recomendacion(accion.upside)
+                accion.precio_actual = datos.get("precio_actual")
+                accion.per = datos.get("per")
+                accion.max_52s = datos.get("max_52s")
+                accion.min_52s = datos.get("min_52s")
+            if accion.valor_objetivo and accion.precio_actual:
+                accion.upside = calcular_upside(
+                    accion.valor_objetivo, accion.precio_actual
+                )
+                accion.recomendacion = generar_recomendacion(accion.upside)
             accion.save()
-            messages.success(request, f"✅ Acción '{accion.ticker.upper()}' actualizada correctamente.")
-            return redirect('ver_watchlist')
+            messages.success(request, f"✅ {accion.ticker} actualizada.")
+            return redirect("ver_watchlists")
+
+    form = WatchlistForm(instance=accion) if WatchlistForm else None
+    return render(
+        request,
+        "alpha_quantum/editar_watchlist.html",
+        {"form": form, "accion": accion, "lista": lista},
+    )
+
+
+@login_required
+def eliminar_watchlist(request: HttpRequest, lista_id: int, item_id: int):
+    lista = get_object_or_404(WatchlistLista, pk=lista_id, user=request.user)
+    accion = get_object_or_404(Watchlist, pk=item_id, user=request.user, lista=lista)
+    if request.method == "POST":
+        ticker = accion.ticker
+        accion.delete()
+        messages.success(request, f"🗑️ {ticker} eliminada de “{lista.titulo}”.")
+        return redirect("ver_watchlists")
+    return render(
+        request,
+        "alpha_quantum/confirmar_eliminar.html",
+        {"accion": accion, "lista": lista},
+    )
+
+
+# ---------------------------
+# Refrescos
+# ---------------------------
+@login_required
+def refrescar_watchlist(request: HttpRequest, lista_id: int):
+    lista = get_object_or_404(WatchlistLista, pk=lista_id, user=request.user)
+    items = Watchlist.objects.filter(user=request.user, lista=lista)
+    count = 0
+    for it in items:
+        datos = obtener_datos_finnhub(it.ticker)
+        if datos:
+            it.precio_actual = datos.get("precio_actual")
+            it.per = datos.get("per")
+            it.max_52s = datos.get("max_52s")
+            it.min_52s = datos.get("min_52s")
+            if it.valor_objetivo and it.precio_actual:
+                it.upside = calcular_upside(it.valor_objetivo, it.precio_actual)
+                it.recomendacion = generar_recomendacion(it.upside)
+            it.save()
+            count += 1
+    messages.info(request, f"🔄 Refrescadas {count} acciones de “{lista.titulo}”.")
+    return redirect("ver_watchlists")
+
+
+@login_required
+def refrescar_watchlist_item(request: HttpRequest, lista_id: int, item_id: int):
+    lista = get_object_or_404(WatchlistLista, pk=lista_id, user=request.user)
+    it = get_object_or_404(Watchlist, pk=item_id, user=request.user, lista=lista)
+    datos = obtener_datos_finnhub(it.ticker)
+    if datos:
+        it.precio_actual = datos.get("precio_actual")
+        it.per = datos.get("per")
+        it.max_52s = datos.get("max_52s")
+        it.min_52s = datos.get("min_52s")
+        if it.valor_objetivo and it.precio_actual:
+            it.upside = calcular_upside(it.valor_objetivo, it.precio_actual)
+            it.recomendacion = generar_recomendacion(it.upside)
+        it.save()
+        messages.success(request, f"🔄 {it.ticker} refrescada.")
     else:
-        form = WatchlistForm(instance=accion)
-    return render(request, 'alpha_quantum/editar_watchlist.html', {'form': form, 'accion': accion})
+        messages.warning(request, f"No se pudo refrescar {it.ticker}.")
+    return redirect("ver_watchlists")
+
+
+# ---------------------------
+# Exportar CSV
+# ---------------------------
+@login_required
+def exportar_watchlist_csv(request: HttpRequest, lista_id: int) -> HttpResponse:
+    lista = get_object_or_404(WatchlistLista, pk=lista_id, user=request.user)
+    items = Watchlist.objects.filter(user=request.user, lista=lista).order_by("ticker")
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="watchlist_{lista.titulo}.csv"'
+    writer = csv.writer(response, delimiter=";")
+    writer.writerow(
+        [
+            "Ticker",
+            "Nombre",
+            "Precio",
+            "Objetivo",
+            "Upside(%)",
+            "PER",
+            "Max52s",
+            "Min52s",
+            "Recomendación",
+        ]
+    )
+    for it in items:
+        writer.writerow(
+            [
+                it.ticker,
+                it.nombre or "",
+                f"{it.precio_actual or ''}",
+                f"{it.valor_objetivo or ''}",
+                f"{it.upside or ''}",
+                f"{it.per or ''}",
+                f"{it.max_52s or ''}",
+                f"{it.min_52s or ''}",
+                it.recomendacion or "",
+            ]
+        )
+    return response
+
+
+# ---------------------------
+# Autocompletar
+# ---------------------------
+@login_required
+def autocompletar_ticker(request: HttpRequest) -> JsonResponse:
+    q = (request.GET.get("q") or "").upper().strip()
+    if not q:
+        return JsonResponse({"suggestions": []})
+    s = (
+        Watchlist.objects.filter(user=request.user, ticker__startswith=q)
+        .values_list("ticker", flat=True)
+        .order_by("ticker")
+        .distinct()[:10]
+    )
+    return JsonResponse({"suggestions": list(s)})
+
+@login_required
+def eliminar_watchlist_lista(request, lista_id: int):
+    """
+    Elimina una watchlist completa (y, por cascada, todos sus items).
+    Solo acepta POST (viene del modal de confirmación).
+    """
+    lista = get_object_or_404(WatchlistLista, pk=lista_id, user=request.user)
+
+    if request.method == "POST":
+        titulo = lista.titulo
+        lista.delete()  # CASCADE se lleva sus items
+        messages.success(request, f"🗑️ Lista “{titulo}” eliminada.")
+        return redirect("ver_watchlists")
+
+    # Si te llegan por GET, simplemente vuelve a la página
+    messages.info(request, "Acción cancelada.")
+    return redirect("ver_watchlists")
+# ---------------------------
+# Compat (rutas antiguas)
+# ---------------------------
+@login_required
+def ver_watchlist(request: HttpRequest, lista_id: Optional[int] = None) -> HttpResponseRedirect:
+    """Alias por compatibilidad: redirige al overview apilado."""
+    return redirect("ver_watchlists")
 
 
 # ===========================
@@ -797,16 +1375,264 @@ def noticias(request):
 # ===========================
 #     ANÁLISIS FUNDAMENTAL
 # ===========================
-def fundamental(request):
-    return render(request, 'alpha_quantum/fundamental.html')
+# -*- coding: utf-8 -*-
+
+import requests
+from django.conf import settings
+from django.shortcuts import render
+
+from .utils import (
+    obtener_precio_actual,
+    obtener_datos_fundamentales_alpha_vantage,
+)
+
+from .models import Accion
+# importa tus modelos de watchlist (como los nombraste)
+from .models.watchlist import WatchlistLista
+
+TD_KEY = getattr(settings, "TWELVE_DATA_API_KEY", None)
+FH_KEY = getattr(settings, "FINNHUB_API_KEY", None)
+AV_KEY = getattr(settings, "ALPHA_VANTAGE_API_KEY", None)
+
+
+# ------------------- helpers -------------------
+
+def _serie_precios_twelvedata(ticker: str, days: int = 60):
+    """Cierres diarios (últimos `days`) con TwelveData"""
+    if not TD_KEY:
+        return []
+    try:
+        url = "https://api.twelvedata.com/time_series"
+        params = {"symbol": ticker, "interval": "1day", "outputsize": days, "apikey": TD_KEY}
+        r = requests.get(url, params=params, timeout=12)
+        dj = r.json()
+        values = list(reversed(dj.get("values") or []))
+        return [{"t": v["datetime"], "c": float(v["close"])} for v in values]
+    except Exception:
+        return []
+
+
+def _av_get(function: str, ticker: str):
+    if not AV_KEY:
+        return {}
+    try:
+        url = "https://www.alphavantage.co/query"
+        r = requests.get(url, params={"function": function, "symbol": ticker, "apikey": AV_KEY}, timeout=15)
+        return r.json() or {}
+    except Exception:
+        return {}
+
+
+def _to_f(x, scale=1.0):
+    try:
+        return float(x) / scale
+    except Exception:
+        return None
+
+
+def _income_quarterly(ticker: str, n: int = 8):
+    """INCOME_STATEMENT (quarterlyReports) → labels, revenue(M), gp, opInc, netInc"""
+    data = _av_get("INCOME_STATEMENT", ticker)
+    rows = data.get("quarterlyReports") or []
+    rows = rows[:n][::-1]  # últimos n, cronológico
+    labels, revenue, gp, opi, ni = [], [], [], [], []
+    for r in rows:
+        labels.append(r.get("fiscalDateEnding"))
+        revenue.append(_to_f(r.get("totalRevenue"), 1e6))
+        gp.append(_to_f(r.get("grossProfit"), 1e6))
+        opi.append(_to_f(r.get("operatingIncome"), 1e6))
+        ni.append(_to_f(r.get("netIncome"), 1e6))
+    return labels, revenue, gp, opi, ni
+
+
+def _earnings_eps_quarterly(ticker: str, n: int = 8):
+    """EARNINGS (quarterlyEarnings) → labels, reportedEPS"""
+    data = _av_get("EARNINGS", ticker)
+    rows = data.get("quarterlyEarnings") or []
+    rows = rows[:n][::-1]
+    labels, eps = [], []
+    for r in rows:
+        labels.append(r.get("reportedDate"))
+        eps.append(_to_f(r.get("reportedEPS")))
+    return labels, eps
+
+
+def _balance_quarterly(ticker: str, n: int = 8):
+    """BALANCE_SHEET (quarterlyReports) → labels, activos(B), pasivos(B)"""
+    data = _av_get("BALANCE_SHEET", ticker)
+    rows = data.get("quarterlyReports") or []
+    rows = rows[:n][::-1]
+    labels, assets, liab = [], [], []
+    for r in rows:
+        labels.append(r.get("fiscalDateEnding"))
+        assets.append(_to_f(r.get("totalAssets"), 1e9))
+        liab.append(_to_f(r.get("totalLiabilities"), 1e9))
+    return labels, assets, liab
+
+
+def _margins_from_income(labels, revenue_m, gp_m, opi_m, ni_m):
+    """Devuelve % márgenes (bruto, operativo, neto) a partir de income en millones"""
+    bruto, oper, neto = [], [], []
+    for i in range(len(labels)):
+        rev = revenue_m[i] or 0
+        if rev:
+            bruto.append(round((gp_m[i] or 0) / rev * 100, 2))
+            oper.append(round((opi_m[i] or 0) / rev * 100, 2))
+            neto.append(round((ni_m[i] or 0) / rev * 100, 2))
+        else:
+            bruto.append(None); oper.append(None); neto.append(None)
+    return labels, bruto, oper, neto
+
+
+def _fundamentales_finnhub(ticker: str):
+    """Fallback de perfil + métricas si AV no responde"""
+    if not FH_KEY:
+        return {}, {}, None, None
+
+    perfil, indicadores = {}, {}
+    nombre, moneda = None, None
+    try:
+        rp = requests.get(
+            "https://finnhub.io/api/v1/stock/profile2",
+            params={"symbol": ticker, "token": FH_KEY},
+            timeout=12,
+        )
+        if rp.status_code == 200:
+            p = rp.json() or {}
+            perfil = {
+                "sector": p.get("finnhubIndustry"),
+                "industria": p.get("finnhubIndustry"),
+                "pais": p.get("country"),
+                "empleados": p.get("employeeTotal"),
+                "deuda_equity": None,
+                "peg": None,
+            }
+            nombre = p.get("name")
+            moneda = p.get("currency")
+
+        rm = requests.get(
+            "https://finnhub.io/api/v1/stock/metric",
+            params={"symbol": ticker, "metric": "all", "token": FH_KEY},
+            timeout=12,
+        )
+        if rm.status_code == 200:
+            m = (rm.json() or {}).get("metric", {})
+            indicadores = {
+                "per": m.get("peInclExtraTTM"),
+                "roe": m.get("roeTTM"),
+                "roi": m.get("roiTTM"),
+                "deuda_total": m.get("totalDebt"),
+                "beneficio_neto": m.get("netProfitAnnual"),
+                "valor_intrinseco": None,
+            }
+    except Exception:
+        pass
+    return perfil, indicadores, nombre, moneda
+
+
+# ------------------- view -------------------
 
 def analisis_fundamental(request):
-    datos = None
-    ticker = request.GET.get('ticker')
-    if ticker:
-        datos = obtener_datos_fundamentales_alpha_vantage(ticker.upper())
-        print("DEBUG - Datos parseados:", datos)
-    return render(request, 'alpha_quantum/fundamental.html', {'datos': datos, 'ticker': ticker})
+    ticker = (request.GET.get("ticker") or "AAPL").upper().strip()
+
+    # Precio + serie para el gráfico
+    try:
+        precio = float(obtener_precio_actual(ticker) or 0)
+    except Exception:
+        precio = None
+    ohlcv = _serie_precios_twelvedata(ticker, days=60)
+
+    # Perfil/indicadores (Overview AV con fallback Finnhub)
+    datos_av = obtener_datos_fundamentales_alpha_vantage(ticker)
+    error_msg = None
+
+    perfil = {"sector": None, "industria": None, "pais": None, "empleados": None, "deuda_equity": None, "peg": None}
+    indicadores = {"per": None, "roe": None, "roi": None, "deuda_total": None, "beneficio_neto": None, "valor_intrinseco": None}
+    nombre, moneda = None, "USD"
+
+    if datos_av and not datos_av.get("error"):
+        nombre = datos_av.get("nombre")
+        perfil.update({
+            "sector": datos_av.get("sector"),
+            "industria": datos_av.get("industria"),
+            "pais": datos_av.get("pais"),
+            "empleados": datos_av.get("empleados"),
+            "deuda_equity": datos_av.get("deuda_equity"),
+            "peg": datos_av.get("PEG"),
+        })
+        indicadores.update({
+            "per": datos_av.get("PER"),
+            "roe": datos_av.get("ROE"),
+            "roi": datos_av.get("ROA"),  # proxy ROI
+        })
+    else:
+        if datos_av and datos_av.get("error"):
+            error_msg = datos_av["error"]
+        else:
+            error_msg = "No se pudo obtener OVERVIEW en Alpha Vantage. Intento datos alternativos."
+        pf, ind, nombre_fh, moneda_fh = _fundamentales_finnhub(ticker)
+        perfil.update({k: v for k, v in pf.items() if v is not None})
+        indicadores.update({k: v for k, v in ind.items() if v is not None})
+        if nombre_fh: nombre = nombre_fh
+        if moneda_fh: moneda = moneda_fh
+
+    # -------- datos para las gráficas (AV) --------
+    rev_labels, rev_values, gp_m, opi_m, ni_m = _income_quarterly(ticker, n=8)
+    eps_labels, eps_values = _earnings_eps_quarterly(ticker, n=8)
+    bal_labels, activos_b, pasivos_b = _balance_quarterly(ticker, n=8)
+    marg_labels, margen_bruto, margen_oper, margen_neto = _margins_from_income(rev_labels, rev_values, gp_m, opi_m, ni_m)
+
+    # -------- sidebar: cartera y watchlists --------
+    holdings = []
+    wlists = []
+    if request.user.is_authenticated:
+        for a in Accion.objects.filter(user=request.user).order_by("ticker"):
+            holdings.append({
+                "ticker": a.ticker,
+                "nombre": getattr(a, "nombre", "") or a.ticker,
+                "precio": float(a.precio_actual) if getattr(a, "precio_actual", None) else None,
+                "cantidad": float(a.cantidad or 0),
+            })
+        for lst in WatchlistLista.objects.filter(user=request.user).prefetch_related("items"):
+            wlists.append({
+                "titulo": lst.titulo,
+                "items": [
+                    {
+                        "ticker": it.ticker,
+                        "nombre": it.nombre or it.ticker,
+                        "precio": float(it.precio_actual) if it.precio_actual is not None else None,
+                    }
+                    for it in lst.items.all().order_by("ticker")
+                ],
+            })
+
+    ctx = {
+        "ticker": ticker,
+        "datos": {"ticker": ticker, "nombre": nombre or ticker, "precio": precio, "moneda": moneda},
+        "indicadores": indicadores,
+        "perfil": perfil,
+        "ohlcv": ohlcv,
+
+        # charts
+        "revenue_labels": rev_labels,        # fechas
+        "revenue_values": rev_values,        # millones
+        "eps_labels": eps_labels,
+        "eps_values": eps_values,
+        "margin_labels": marg_labels,
+        "margen_bruto": margen_bruto,
+        "margen_oper": margen_oper,
+        "margen_neto": margen_neto,
+        "balance_labels": bal_labels,
+        "activos": activos_b,                # billones
+        "pasivos": pasivos_b,                # billones
+
+        # sidebar
+        "holdings": holdings,
+        "wlists": wlists,
+
+        "error_msg": error_msg,
+    }
+    return render(request, "alpha_quantum/fundamental.html", ctx)
 
 
 # ===========================
@@ -919,6 +1745,187 @@ def cashflow_dashboard(request):
         'valores_hipoteca_restante': json.dumps(valores_deuda_total),
     }
     return render(request, 'alpha_quantum/cashflow/flujo_de_caja.html', context)
+
+
+from datetime import date
+from decimal import Decimal
+from dateutil.relativedelta import relativedelta
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+
+from .models.cashflow import CashFlow
+from .models.propiedad_alquilada import PropiedadAlquiler
+from .models.prestamo import Prestamo
+
+def _first_of_month(d: date) -> date:
+    return d.replace(day=1)
+
+def _coalesce_date(obj, *names, default=None):
+    """Devuelve la primera fecha encontrada entre los atributos names, normalizada a 1er día de mes."""
+    for n in names:
+        if hasattr(obj, n):
+            v = getattr(obj, n)
+            if isinstance(v, date):
+                return _first_of_month(v)
+    return _first_of_month(default or date.today())
+
+@login_required
+def cashflow_series_api(request):
+    rng = (request.GET.get("range") or "1A").upper()
+    months = {"3M": 3, "6M": 6, "1A": 12, "5A": 60, "TODO": 24}.get(rng, 12)
+
+    today = _first_of_month(date.today())
+    start = today
+    end   = today + relativedelta(months=months)
+
+    user = request.user
+
+    # ==== CashFlow base (solo formulario) ====
+    from collections import defaultdict
+    regs = CashFlow.objects.filter(
+        user=user,
+        date__gte=today - relativedelta(months=1),  # para tomar el "último" y arrastrar
+        date__lt=end
+    )
+    ing_mes, gas_mes = defaultdict(Decimal), defaultdict(Decimal)
+    for r in regs:
+        k = _first_of_month(r.date).strftime("%Y-%m")
+        a = Decimal(str(r.amount or 0))
+        if r.category == "ingreso":
+            ing_mes[k] += a
+        else:
+            gas_mes[k] += a
+
+    last_key = (today - relativedelta(months=1)).strftime("%Y-%m")
+    last_ing = ing_mes.get(last_key, Decimal("0"))
+    last_gas = gas_mes.get(last_key, Decimal("0"))
+
+    # ==== Propiedades y préstamos (con fecha de inicio) ====
+    props = PropiedadAlquiler.objects.filter(user=user)
+    prestamos = Prestamo.objects.filter(user=user)
+
+    hipos = [{
+        "hip":  Decimal(str(p.hipoteca_mensual or 0)),
+        "rest": int(p.meses_restantes_hipoteca or 0),
+        "ing":  Decimal(str(p.ingreso_mensual or 0)),
+        "man":  Decimal(str(p.gastos_mantenimiento or 0)),
+        "ini":  _coalesce_date(p, "fecha_inicio_hipoteca", "fecha_inicio", "inicio", "created_at", default=today),
+    } for p in props]
+
+    loans = [{
+        "cuota": Decimal(str(l.cuota_mensual or 0)),
+        "rest":  int(l.meses_restantes or 0),
+        "ini":   _coalesce_date(l, "fecha_inicio", "inicio", "created_at", default=today),
+    } for l in prestamos]
+
+    deuda_total_ini = sum(h["hip"] * Decimal(h["rest"]) for h in hipos) + \
+                      sum(l["cuota"] * Decimal(l["rest"]) for l in loans)
+
+    labels = []
+    ingresos_series, gastos_series = [], []
+    deuda_total_series, balance_series = [], []
+    deuda_mensual_series = []
+    deuda_pend = deuda_total_ini
+    balance_acum = Decimal("0")
+
+    # KPIs del último mes simulado
+    k_ing = k_gas = k_deuda_mens = k_ben_prop = Decimal("0")
+    k_mes = ""
+
+    for i in range(months):
+        mes = start + relativedelta(months=i)
+        mkey = mes.strftime("%Y-%m")
+        labels.append(mkey)
+        k_mes = mkey
+
+        # 1) Ingresos/Gastos base (constantes si no hay nuevos)
+        inc_base = ing_mes.get(mkey, last_ing)
+        gas_base = gas_mes.get(mkey, last_gas)
+        last_ing = inc_base
+        last_gas = gas_base
+
+        # 2) Beneficio propiedades y pagos de hipoteca (la hipoteca ya resta en el beneficio)
+        ben_prop_mes = Decimal("0")
+        pago_hip_mes = Decimal("0")
+        for h in hipos:
+            if mes >= h["ini"]:
+                if h["rest"] > 0:
+                    pago_hip_mes += h["hip"]
+                    ben_prop_mes += (h["ing"] - h["man"] - h["hip"])
+                    h["rest"] -= 1
+                else:
+                    ben_prop_mes += (h["ing"] - h["man"])
+            else:
+                # Si quieres que no haya renta antes del inicio, deja 0.
+                # Si quieres que exista renta incluso antes, usa:
+                # ben_prop_mes += (h["ing"] - h["man"])
+                ben_prop_mes += Decimal("0")
+
+        # 3) Préstamos personales (se restan aparte)
+        pago_prest_mes = Decimal("0")
+        for l in loans:
+            if mes >= l["ini"] and l["rest"] > 0:
+                pago_prest_mes += l["cuota"]
+                l["rest"] -= 1
+
+        # 4) Deuda pendiente baja por hipotecas+préstamos
+        pago_deuda_total_mes = pago_hip_mes + pago_prest_mes
+        if deuda_pend > 0:
+            deuda_pend = max(deuda_pend - pago_deuda_total_mes, Decimal("0"))
+
+        # 5) Balance acumulado: ingresos base - gastos base + beneficio prop - préstamos
+        balance_mes = inc_base - gas_base + ben_prop_mes - pago_prest_mes
+        balance_acum += balance_mes
+
+        # Series
+        ingresos_series.append(float(inc_base))
+        gastos_series.append(float(gas_base))
+        deuda_total_series.append(float(deuda_pend))
+        deuda_mensual_series.append(float(pago_deuda_total_mes))
+        balance_series.append(float(balance_acum))
+
+        # KPIs del mes corriente (el último del bucle queda como "último período")
+        k_ing = inc_base
+        k_gas = gas_base
+        k_deuda_mens = pago_deuda_total_mes
+        k_ben_prop = ben_prop_mes
+
+    # 6) Tasa de ahorro del último mes
+    base = k_ing + k_ben_prop
+    tasa_ahorro = float(((base - (k_gas + k_deuda_mens)) / base * Decimal("100"))) if base > 0 else 0.0
+
+    return JsonResponse({
+        "labels": labels,
+        "ingresos": ingresos_series,
+        "gastos": gastos_series,
+        "deuda_total": deuda_total_series,
+        "deuda_mensual": deuda_mensual_series,
+        "balance_cuentas": balance_series,
+        "kpis": {
+            "ingresos": float(k_ing),
+            "gastos": float(k_gas),
+            "beneficio_propiedades": float(k_ben_prop),
+            "deuda_mensual": float(k_deuda_mens),
+            "balance_total": float(balance_acum),
+            "tasa_ahorro": tasa_ahorro,
+            "mes": k_mes
+        }
+    })
+
+
+
+@login_required
+def cashflow_export_csv(request):
+    """Exporta ingresos/gastos a CSV (opcional)."""
+    import csv
+    registros = CashFlow.objects.filter(user=request.user).order_by('date')
+    resp = HttpResponse(content_type="text/csv")
+    resp['Content-Disposition'] = 'attachment; filename=flujo_de_caja.csv'
+    w = csv.writer(resp)
+    w.writerow(["Fecha","Tipo","Categoria","Descripcion","Monto"])
+    for r in registros:
+        w.writerow([r.date, r.category, r.subcategory or "", r.description or "", float(r.amount)])
+    return resp
 
 @login_required
 def agregar_ingreso(request):
@@ -1104,41 +2111,239 @@ def precios_watchlist_api(request):
 
     return JsonResponse({"acciones": data})
 
-# --- imports necesarios (si no están ya) ---
-def cartera(request):
-    """
-    Muestra la lista de acciones que forman parte de la cartera.
-    """
-    acciones = Accion.objects.all()
-    return render(request, 'alpha_quantum/cartera.html', {'acciones': acciones})
+# alpha_quantum/views.py
+
+# views.py
+from decimal import Decimal
+from collections import defaultdict
+from datetime import date, timedelta
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from django.db.models import Sum
+
+# Usa tu helper ya definido arriba
+# def _position_on(user, ticker: str, cutoff) -> Decimal: ...
 
 @login_required
 def resumen_cartera(request):
     """
-    Página de 'Resumen' (no API). Muestra unos KPIs básicos de la cartera
-    del usuario y lista rápida de posiciones.
+    Dashboard de resumen con:
+      - KPIs (valor actual, invertido, P/L, %)
+      - Beneficios por empresa (€)
+      - Coste vs Valor de mercado
+      - Distribuciones (ticker, sector, divisa)
+      - Rentabilidad últimos 12m (línea)
+      - Dividendos: próximo calendario, mensual últimos 12m, total anual y yield
+      - Métricas: volatilidad (simple), Sharpe (aprox), % en cash (si no hay, 0)
     """
-    acciones = Accion.objects.filter(user=request.user)
+    from .models import Accion
+    from .models.dividendo import Dividendo
+    from .models.historico import HistoricoCartera
+
+    user = request.user
+
+    acciones = Accion.objects.filter(user=user).order_by('ticker')
+    dividendos = Dividendo.objects.filter(accion__user=user).select_related('accion').order_by('fecha')
 
     total_invertido = Decimal('0')
-    valor_actual = Decimal('0')
+    valor_actual     = Decimal('0')
+
+    # ---------- Posiciones y agregados ----------
+    posiciones = []
+    by_sector  = defaultdict(Decimal)
+    by_divisa  = defaultdict(Decimal)
 
     for a in acciones:
         qty = Decimal(str(a.cantidad or 0))
         pc  = Decimal(str(a.precio_compra or 0))
-        pa  = Decimal(str(a.precio_actual or 0))
-        total_invertido += qty * pc
-        valor_actual    += qty * pa
+        pa  = Decimal(str(a.precio_actual or a.precio_compra or 0))
 
+        inv = qty * pc
+        val = qty * pa
+        pnl = val - inv
+
+        total_invertido += inv
+        valor_actual    += val
+
+        sector = getattr(a, 'sector', None) or "Sin sector"
+        divisa = getattr(a, 'divisa', None) or "Sin divisa"
+
+        posiciones.append({
+            "ticker": a.ticker,
+            "cantidad": float(qty),
+            "precio_compra": float(pc),
+            "precio_actual": float(pa),
+            "valor_total": float(val),
+            "coste_total": float(inv),
+            "pnl": float(pnl),
+            "sector": sector,
+            "divisa": divisa,
+        })
+
+        by_sector[sector] += val
+        by_divisa[divisa] += val
+
+    # KPIs base
     rentabilidad = valor_actual - total_invertido
+    rentabilidad_pct = float((rentabilidad / total_invertido * Decimal('100'))) if total_invertido > 0 else 0.0
+
+    # ---------- Distribuciones ----------
+    dist_ticker_labels = [p["ticker"] for p in posiciones]
+    dist_ticker_values = [p["valor_total"] for p in posiciones]
+
+    dist_sector_labels = list(by_sector.keys())
+    dist_sector_values = [float(v) for v in by_sector.values()]
+
+    dist_divisa_labels = list(by_divisa.keys())
+    dist_divisa_values = [float(v) for v in by_divisa.values()]
+
+    # ---------- Coste vs Valor ----------
+    coste_labels = [p["ticker"] for p in posiciones]
+    coste_values = [p["coste_total"] for p in posiciones]
+    valor_values = [p["valor_total"] for p in posiciones]
+
+    # ---------- Beneficios por empresa ----------
+    beneficios_labels = [p["ticker"] for p in posiciones]
+    beneficios_values = [p["pnl"] for p in posiciones]
+
+    # ---------- Rentabilidad últimos 12m (línea) ----------
+    hoy = date.today()
+    hace_12m = hoy - timedelta(days=365)
+    # HistoricoCartera: tus campos pueden ser valor/invertido o valor_total/invertido_total según tus seeds
+    # Intentamos ambos nombres de forma robusta
+    hist = HistoricoCartera.objects.filter(user=user, fecha__gte=hace_12m).order_by('fecha')
+    fechas_series, serie_valor = [], []
+    for h in hist:
+        fechas_series.append(h.fecha.strftime("%Y-%m-%d"))
+        v = getattr(h, 'valor', None)
+        if v is None:
+            v = getattr(h, 'valor_total', 0)
+        serie_valor.append(float(v or 0))
+
+    rent_12m_labels, rent_12m_values = [], []
+    if len(serie_valor) >= 2:
+        base = serie_valor[0]
+        for idx, v in enumerate(serie_valor):
+            rr = 0.0 if base == 0 else (v - base) / base * 100.0
+            rent_12m_labels.append(fechas_series[idx])
+            rent_12m_values.append(rr)
+
+    # ---------- Volatilidad y Sharpe (aprox) ----------
+    # volatilidad = std de rendimientos diarios * sqrt(252)
+    # sharpe = (avg_ret * 252) / (std_daily * sqrt(252))  => simplifica a avg_ret/std_daily * sqrt(252)
+    daily_returns = []
+    if len(serie_valor) >= 2:
+        for i in range(1, len(serie_valor)):
+            prev, cur = serie_valor[i-1], serie_valor[i]
+            if prev != 0:
+                daily_returns.append((cur/prev) - 1.0)
+
+    def _std(xs):
+        if len(xs) < 2: return 0.0
+        m = sum(xs)/len(xs)
+        var = sum((x-m)**2 for x in xs)/(len(xs)-1)
+        return var**0.5
+
+    vol_pct = 0.0
+    sharpe  = 0.0
+    if daily_returns:
+        std_d = _std(daily_returns)
+        avg_d = sum(daily_returns)/len(daily_returns)
+        vol_pct = (std_d * (252**0.5)) * 100.0
+        sharpe  = (avg_d/std_d)*(252**0.5) if std_d > 0 else 0.0
+
+    # ---------- Dividendos ----------
+    #  a) últimos 12 meses por mes (sumando monto * shares en fecha)
+    meses = []
+    div_mes_map = defaultdict(Decimal)
+    hace_12m_div = hoy - timedelta(days=365)
+    for d in dividendos:
+        if not hasattr(d, 'fecha') or d.fecha is None:
+            continue
+        if d.fecha < hace_12m_div:
+            continue
+        key = d.fecha.strftime("%Y-%m")
+        tk = d.accion.ticker
+        qty_on_date = _position_on(user, tk, d.fecha)
+        div_mes_map[key] += Decimal(str(d.monto or 0)) * Decimal(qty_on_date)
+
+    meses = sorted(div_mes_map.keys())
+    div_mensual_labels = meses
+    div_mensual_values = [float(div_mes_map[m]) for m in meses]
+    dividendos_12m_total = float(sum(div_mes_map.values()))
+
+    #  b) total por año y por ticker (para barras apiladas o simple)
+    div_por_anio = defaultdict(lambda: defaultdict(Decimal))
+    for d in dividendos:
+        if not hasattr(d, 'fecha') or d.fecha is None:
+            continue
+        anio = d.fecha.year
+        qty_on_date = _position_on(user, d.accion.ticker, d.fecha)
+        div_por_anio[anio][d.accion.ticker] += Decimal(str(d.monto or 0)) * Decimal(qty_on_date)
+
+    dividendos_anuales = {int(y): {tk: float(v) for tk, v in m.items()} for y, m in div_por_anio.items()}
+    anios_div = sorted(dividendos_anuales.keys())
+    anio_actual = anios_div[-1] if anios_div else date.today().year
+    div_actual_labels = list(dividendos_anuales.get(anio_actual, {}).keys())
+    div_actual_values = list(dividendos_anuales.get(anio_actual, {}).values())
+
+    #  c) yield por dividendos (últimos 12m / valor actual)
+    dividend_yield_pct = (dividendos_12m_total / float(valor_actual)) * 100.0 if valor_actual > 0 else 0.0
+
+    # ---------- Próximos "dividendos" (si no tienes calendario, dejamos vacío) ----------
+    # Puedes poblarlos desde tu modelo EventoFinanciero si lo deseas.
+    proximos_dividendos = []  # [{"ticker":"AAPL","fecha":"2025-09-01","importe":12.34}, ...]
+
+    # ---------- % en cash (si no tienes modelo de cash, 0) ----------
+    cash_pct = 0.0
 
     context = {
+        # KPIs
         "total_invertido": float(total_invertido),
         "valor_actual": float(valor_actual),
         "rentabilidad": float(rentabilidad),
-        "acciones": acciones,
+        "rentabilidad_pct": float(rentabilidad_pct),
+
+        # Métricas avanzadas
+        "volatilidad_pct": float(vol_pct),
+        "sharpe_ratio": float(sharpe),
+        "cash_pct": float(cash_pct),
+
+        # Beneficios
+        "beneficios_labels": beneficios_labels,
+        "beneficios_values": beneficios_values,
+
+        # Coste vs valor
+        "coste_labels": coste_labels,
+        "coste_values": coste_values,
+        "valor_values": valor_values,
+
+        # Distribución
+        "dist_ticker_labels": dist_ticker_labels,
+        "dist_ticker_values": dist_ticker_values,
+        "dist_sector_labels": dist_sector_labels,
+        "dist_sector_values": dist_sector_values,
+        "dist_divisa_labels": dist_divisa_labels,
+        "dist_divisa_values": dist_divisa_values,
+
+        # Rentabilidad últimos 12m
+        "rent_12m_labels": rent_12m_labels,
+        "rent_12m_values": rent_12m_values,
+
+        # Dividendos
+        "div_mensual_labels": div_mensual_labels,
+        "div_mensual_values": div_mensual_values,
+        "dividendos_12m_total": float(dividendos_12m_total),
+        "dividend_yield_pct": float(dividend_yield_pct),
+        "anio_dividendo": int(anio_actual),
+        "div_actual_labels": div_actual_labels,
+        "div_actual_values": div_actual_values,
+        "proximos_dividendos": proximos_dividendos,
     }
     return render(request, "alpha_quantum/resumen.html", context)
+
+
+
 
 @login_required
 def editar_accion(request, accion_id):
@@ -1156,24 +2361,3 @@ def editar_accion(request, accion_id):
         form = AccionForm(instance=accion)
 
     return render(request, "alpha_quantum/editar_accion.html", {"form": form})
-
-
-@login_required
-def watchlist_data(request):
-    user = request.user
-    watchlist = Watchlist.objects.filter(user=user)
-
-    data = []
-    for accion in watchlist:
-        data.append({
-            "id": accion.id,
-            "ticker": accion.ticker,
-            "precio_actual": float(accion.precio_actual) if accion.precio_actual else None,
-            "precio_max_52": float(accion.precio_max_52) if accion.precio_max_52 else None,
-            "precio_min_52": float(accion.precio_min_52) if accion.precio_min_52 else None,
-            "precio_objetivo": float(accion.valor_objetivo) if accion.valor_objetivo else None,
-            "PER": float(accion.PER) if accion.PER else None,
-            "fecha_agregado": accion.fecha_agregado.strftime("%Y-%m-%d") if accion.fecha_agregado else None,
-        })
-
-    return JsonResponse({"watchlist": data})

@@ -10,7 +10,6 @@ class Transaccion(models.Model):
     )
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-
     ticker = models.CharField(max_length=16)
     tipo = models.CharField(max_length=4, choices=TIPO)
     cantidad = models.DecimalField(max_digits=18, decimal_places=4, default=0)

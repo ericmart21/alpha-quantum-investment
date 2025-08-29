@@ -1,40 +1,228 @@
 {% extends 'alpha_quantum/layout.html' %}
+{% load static %}
 
 {% block content %}
-<div class="container mt-5">
-    <h2 class="mb-4">📊 Análisis Fundamental</h2>
 
-    <!-- Formulario de búsqueda por ticker -->
-    <form method="get" class="row g-3 mb-4">
-        <div class="col-auto">
-            <input type="text" name="ticker" class="form-control" placeholder="Introduce un ticker (ej: AAPL)"
-                value="{{ ticker|default:'' }}">
-        </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-primary">🔍 Buscar</button>
-        </div>
+<style>
+  .af-wrap{max-width:1380px;margin:0 auto;padding:10px}
+  .layout{display:grid;grid-template-columns:1fr 320px;gap:14px}
+  .card{background:#0f131a;border:1px solid #232a36;border-radius:12px}
+  .card-header{padding:10px 12px;border-bottom:1px solid #232a36;background:#0f131a}
+  .card-body{padding:12px}
+  .muted{opacity:.7}
+  .chip{display:inline-block;padding:.15rem .45rem;border-radius:.5rem;font-size:.85rem;background:#101826;border:1px solid #233046}
+  .kpi-list{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .kpi{background:#0b0f15;border:1px solid #232a36;border-radius:10px;padding:10px}
+  .kpi small{opacity:.7}
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .form-inline{display:flex;gap:8px;align-items:center}
+  .form-inline .form-control{width:220px;background:#0c1219;border-color:#2a3243;color:#cfd6e4}
+  .btn{border:1px solid #2a3243;background:#0c1219;color:#cfd6e4;border-radius:8px;padding:6px 10px}
+  .btn-primary{border-color:#2f6df6;background:#2f6df6;color:#fff}
+  .list{list-style:none;margin:0;padding:0}
+  .list li{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border-bottom:1px solid #1b2330}
+  .list li:last-child{border-bottom:none}
+  .pill{font-weight:700;border:1px solid #2a3446;border-radius:999px;padding:.1rem .5rem;background:#0f1621}
+  .aside-title{margin:0;font-weight:700}
+</style>
+
+<div class="af-wrap">
+  <div class="form-inline" style="justify-content:flex-end;margin-bottom:8px;">
+    <form method="get" action="">
+      <input class="form-control" name="ticker" placeholder="Ticker (ej: AAPL)" value="{{ ticker|default:'' }}">
+      <button class="btn btn-primary" type="submit">Buscar</button>
     </form>
+  </div>
 
-    {% if datos %}
-    <div class="datos">
-        <h3>{{ datos.nombre }}</h3>
-        <ul>
-            <li><strong>Sector:</strong> {{ datos.sector }}</li>
-            <li><strong>Industria:</strong> {{ datos.industria }}</li>
-            <li><strong>País:</strong> {{ datos.pais }}</li>
-            <li><strong>Capitalización:</strong> {{ datos.capitalizacion }}</li>
-            <li><strong>Empleados:</strong> {{ datos.empleados }}</li>
-            <li><strong>PER:</strong> {{ datos.PER }}</li>
-            <li><strong>PEG:</strong> {{ datos.PEG }}</li>
-            <li><strong>ROE:</strong> {{ datos.ROE }}</li>
-            <li><strong>ROA:</strong> {{ datos.ROA }}</li>
-            <li><strong>EPS:</strong> {{ datos.EPS }}</li>
-            <li><strong>Deuda/Equity:</strong> {{ datos.deuda_equity }}</li>
-            <li><strong>Dividendo:</strong> {{ datos.dividendo }}</li>
-        </ul>
+  <div class="layout">
+
+    <!-- =============== COLUMNA PRINCIPAL =============== -->
+    <div>
+
+      <!-- Precio + Indicadores -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-header">
+          <strong>{{ datos.ticker }}</strong>
+          <span class="muted">| {{ datos.nombre }}</span>
+          {% if datos.precio %}<span class="chip" style="margin-left:8px;">{{ datos.precio|floatformat:2 }} {{ datos.moneda }}</span>{% endif %}
+          {% if error_msg %}<span class="chip" style="margin-left:8px;color:#ffc46b;border-color:#3a3523;background:#241f12">{{ error_msg }}</span>{% endif %}
+        </div>
+        <div class="card-body">
+          <canvas id="chartPrice" height="120"></canvas>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-header"><strong>Indicadores clave</strong></div>
+        <div class="card-body">
+          <div class="kpi-list">
+            <div class="kpi"><small>PER</small><div><strong>{{ indicadores.per|default:"N/A" }}</strong></div></div>
+            <div class="kpi"><small>ROE</small><div><strong>{{ indicadores.roe|default:"N/A" }}</strong></div></div>
+            <div class="kpi"><small>ROI</small><div><strong>{{ indicadores.roi|default:"N/A" }}</strong></div></div>
+            <div class="kpi"><small>Deuda total</small><div><strong>{% if indicadores.deuda_total %}{{ indicadores.deuda_total|floatformat:0 }}{% else %}N/A{% endif %}</strong></div></div>
+            <div class="kpi"><small>Beneficio neto</small><div><strong>{% if indicadores.beneficio_neto %}{{ indicadores.beneficio_neto|floatformat:0 }}{% else %}N/A{% endif %}</strong></div></div>
+            <div class="kpi"><small>Valor intrínseco</small><div><strong>{% if indicadores.valor_intrinseco %}{{ indicadores.valor_intrinseco|floatformat:2 }}{% else %}N/A{% endif %}</strong></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Perfil -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-header"><strong>Acerca de la compañía</strong></div>
+        <div class="card-body row-3">
+          <div class="kpi"><small>Sector</small><div><strong>{{ perfil.sector|default:"—" }}</strong></div></div>
+          <div class="kpi"><small>Industria</small><div><strong>{{ perfil.industria|default:"—" }}</strong></div></div>
+          <div class="kpi"><small>País</small><div><strong>{{ perfil.pais|default:"—" }}</strong></div></div>
+          <div class="kpi"><small>Empleados</small><div><strong>{{ perfil.empleados|default:"—" }}</strong></div></div>
+          <div class="kpi"><small>Deuda/Equity</small><div><strong>{{ perfil.deuda_equity|default:"—" }}</strong></div></div>
+          <div class="kpi"><small>PEG</small><div><strong>{{ perfil.peg|default:"—" }}</strong></div></div>
+        </div>
+      </div>
+
+      <!-- Ingresos / EPS -->
+      <div class="row-2" style="margin-bottom:12px">
+        <div class="card">
+          <div class="card-header"><strong>Ingresos (millones)</strong></div>
+          <div class="card-body"><canvas id="chartRevenue" height="120"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><strong>EPS (trimestre)</strong></div>
+          <div class="card-body"><canvas id="chartEPS" height="120"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Márgenes / Balance -->
+      <div class="row-2">
+        <div class="card">
+          <div class="card-header"><strong>Márgenes</strong> <span class="muted">(Bruto / Oper / Neto)</span></div>
+          <div class="card-body"><canvas id="chartMargins" height="120"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><strong>Balance</strong> <span class="muted">(Billones)</span></div>
+          <div class="card-body"><canvas id="chartBalance" height="120"></canvas></div>
+        </div>
+      </div>
+
     </div>
-    {% else %}
-    <p class="text-light">No se encontraron datos para el ticker ingresado.</p>
-    {% endif %}
+
+    <!-- =============== ASIDE DERECHA =============== -->
+    <aside>
+      <div class="card" style="margin-bottom:12px;">
+        <div class="card-header"><h4 class="aside-title">En cartera</h4></div>
+        <div class="card-body">
+          {% if holdings %}
+            <ul class="list">
+              {% for h in holdings %}
+              <li>
+                <span><span class="pill">{{ h.ticker }}</span> {{ h.nombre }}</span>
+                <span class="muted">{% if h.precio %}{{ h.precio|floatformat:2 }}{% else %}—{% endif %}</span>
+              </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="muted">No hay posiciones.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h4 class="aside-title">Tus watchlists</h4></div>
+        <div class="card-body" style="max-height:520px;overflow:auto">
+          {% if wlists %}
+            {% for wl in wlists %}
+              <div style="font-weight:700;margin:6px 0 4px">{{ wl.titulo }}</div>
+              <ul class="list" style="margin-bottom:8px">
+                {% for it in wl.items %}
+                <li>
+                  <a href="?ticker={{ it.ticker }}" class="pill" style="text-decoration:none;color:#cfd6e4">{{ it.ticker }}</a>
+                  <span class="muted">{% if it.precio %}{{ it.precio|floatformat:2 }}{% else %}—{% endif %}</span>
+                </li>
+                {% empty %}
+                  <li class="muted">Lista vacía</li>
+                {% endfor %}
+              </ul>
+            {% endfor %}
+          {% else %}
+            <div class="muted">No hay listas.</div>
+          {% endif %}
+        </div>
+      </div>
+    </aside>
+
+  </div>
 </div>
+
+<!-- JSON para JS -->
+{{ ohlcv|json_script:"ohlcv-data" }}
+{{ revenue_labels|json_script:"revenue-labels" }}
+{{ revenue_values|json_script:"revenue-values" }}
+{{ eps_labels|json_script:"eps-labels" }}
+{{ eps_values|json_script:"eps-values" }}
+{{ margin_labels|json_script:"margin-labels" }}
+{{ margen_bruto|json_script:"margen-bruto" }}
+{{ margen_oper|json_script:"margen-oper" }}
+{{ margen_neto|json_script:"margen-neto" }}
+{{ balance_labels|json_script:"balance-labels" }}
+{{ activos|json_script:"activos" }}
+{{ pasivos|json_script:"pasivos" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<script>
+(function(){
+  const J = id => JSON.parse(document.getElementById(id).textContent);
+
+  // Precio (línea)
+  const ohlcv = J('ohlcv-data'); 
+  const priceLabels = ohlcv.map(p => p.t);
+  const priceValues = ohlcv.map(p => p.c);
+  new Chart(document.getElementById('chartPrice'), {
+    type: 'line',
+    data: { labels: priceLabels, datasets: [{ label:'Precio', data: priceValues, fill:true, tension:.3, borderWidth:2 }] },
+    options: { plugins:{legend:{display:false}}, scales:{ x:{ grid:{display:false} } } }
+  });
+
+  // Ingresos (M)
+  new Chart(document.getElementById('chartRevenue'), {
+    type: 'line',
+    data: { labels: J('revenue-labels'), datasets: [{ label:'Ingresos (M)', data: J('revenue-values'), fill:true, tension:.3, borderWidth:2 }] },
+    options: { plugins:{legend:{display:false}}, scales:{ x:{ grid:{display:false} } } }
+  });
+
+  // EPS
+  new Chart(document.getElementById('chartEPS'), {
+    type: 'bar',
+    data: { labels: J('eps-labels'), datasets: [{ label:'EPS', data: J('eps-values'), borderWidth:1 }] },
+    options: { plugins:{legend:{display:false}} }
+  });
+
+  // Márgenes %
+  new Chart(document.getElementById('chartMargins'), {
+    type: 'bar',
+    data: {
+      labels: J('margin-labels'),
+      datasets: [
+        { label:'Bruto %', data: J('margen-bruto'), borderWidth:1 },
+        { label:'Oper %', data: J('margen-oper'), borderWidth:1 },
+        { label:'Neto %', data: J('margen-neto'), borderWidth:1 },
+      ]
+    },
+    options: { interaction:{mode:'index',intersect:false}, plugins:{legend:{position:'bottom'}}, scales:{ y:{ ticks:{ callback:v => v + '%' } } } }
+  });
+
+  // Balance (B)
+  new Chart(document.getElementById('chartBalance'), {
+    type: 'bar',
+    data: {
+      labels: J('balance-labels'),
+      datasets: [
+        { label:'Activos (B)', data: J('activos'), borderWidth:1 },
+        { label:'Pasivos (B)', data: J('pasivos'), borderWidth:1 },
+      ]
+    },
+    options: { plugins:{legend:{position:'bottom'}}, scales:{ x:{stacked:true}, y:{stacked:true} } }
+  });
+})();
+</script>
+
 {% endblock %}

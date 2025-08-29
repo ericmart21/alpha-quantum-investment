@@ -1,442 +1,634 @@
 {% extends "alpha_quantum/layout.html" %}
-{% block content %}
+{% load static %}
+
+{% block title %}Flujo de Caja • Alpha Quantum{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <style>
-  /* Tablas y formularios (oscuro) */
-  .table thead th {
-    background-color: #1a1a1a !important;
-    color: #fff !important;
-    border-color: #444 !important
+  :root{
+    --bg:#0f1317;--panel:#151a21;--panel2:#10161d;--border:#232a33;--text:#e7eef7;
+    --muted:#9fb1c1;--ok:#19e3b1;--info:#4ea8ff;--warn:#ff9f43;--down:#ff5964
   }
-
-  .table-striped tbody tr:nth-of-type(odd) td {
-    background-color: #242424 !important;
-    color: #fff !important
-  }
-
-  .table-striped tbody tr:nth-of-type(even) td {
-    background-color: #1a1a1a !important;
-    color: #fff !important
-  }
-
-  .table-striped tbody tr:hover td {
-    background-color: #333 !important
-  }
-
-  .table td a {
-    color: #fff !important
-  }
-
-  .form-control,
-  .form-select {
-    background-color: #1e1e1e;
-    color: #fff;
-    border-color: #444
-  }
-
-  .form-control::placeholder {
-    color: #aaa
-  }
-
-  /* KPI base */
-  .kpi-card {
-    border: 1px solid transparent;
-    border-radius: .75rem;
-    padding: 1rem
-  }
-
-  .kpi-title {
-    font-size: .85rem;
-    margin-bottom: .25rem;
-    opacity: .9
-  }
-
-  .kpi-value {
-    font-size: 1.25rem;
-    font-weight: 700
-  }
-
-  /* Colores KPI (alineados al gráfico) */
-  .kpi-card.ingresos {
-    background: #22c55e;
-    border-color: #16a34a
-  }
-
-  .kpi-card.gastos {
-    background: #ef4444;
-    border-color: #dc2626
-  }
-
-  .kpi-card.gastos-alquiler {
-    background: #b91c1c;
-    border-color: #991b1b
-  }
-
-  .kpi-card.balance-total {
-    background: #3b82f6;
-    border-color: #2563eb
-  }
-
-  .kpi-card.beneficio-prop {
-    background: #14b8a6;
-    border-color: #0d9488
-  }
-
-  .kpi-card.balance-prest {
-    background: #f59e0b;
-    border-color: #d97706
-  }
-
-  /* Texto de KPI siempre blanco */
-  .kpi-card.ingresos .kpi-title,
-  .kpi-card.gastos .kpi-title,
-  .kpi-card.gastos-alquiler .kpi-title,
-  .kpi-card.balance-total .kpi-title,
-  .kpi-card.beneficio-prop .kpi-title,
-  .kpi-card.balance-prest .kpi-title,
-  .kpi-card.ingresos .kpi-value,
-  .kpi-card.gastos .kpi-value,
-  .kpi-card.gastos-alquiler .kpi-value,
-  .kpi-card.balance-total .kpi-value,
-  .kpi-card.beneficio-prop .kpi-value,
-  .kpi-card.balance-prest .kpi-value {
-    color: #fff
-  }
-
-  /* Tarjeta del gráfico y controles */
-  .chart-card {
-    background: #0f1115;
-    border: 1px solid #2b2f3a;
-    border-radius: .5rem
-  }
-
-  .chart-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: .75rem 1rem;
-    border-bottom: 1px solid #2b2f3a;
-    color: #e5e7eb
-  }
-
-  .chart-body {
-    padding: 1rem
-  }
-
-  .chart-wrap {
-    position: relative;
-    width: 100%;
-    height: 600px
-  }
-
-  .range-btn {
-    border: 1px solid #475569;
-    background: #0b1220;
-    color: #e5e7eb;
-    padding: .25rem .5rem;
-    border-radius: .375rem;
-    font-size: .875rem
-  }
-
-  .range-btn.active {
-    background: #334155
-  }
-
-  .range-btn+.range-btn {
-    margin-left: .25rem
-  }
+  body{background:var(--bg);color:var(--text)}
+  .card{background:var(--panel)!important;border:1px solid var(--border)!important;border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+  .card-header{background:var(--panel2)!important;border-bottom:1px solid var(--border)!important;border-top-left-radius:16px;border-top-right-radius:16px}
+  .page-title{font-weight:800;letter-spacing:.3px}
+  .kpi{display:flex;gap:14px;align-items:center;padding:18px;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0)),var(--panel);border:1px solid var(--border)}
+  .kpi .ico{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+  .kpi .meta{color:var(--muted);font-size:.9rem}
+  .kpi .val{font-weight:800;font-size:1.6rem}
+  .kpi.ok .ico{background:rgba(25,227,177,.12);color:var(--ok);border:1px solid rgba(25,227,177,.35)}
+  .kpi.info .ico{background:rgba(78,168,255,.12);color:var(--info);border:1px solid rgba(78,168,255,.35)}
+  .kpi.warn .ico{background:rgba(255,159,67,.12);color:var(--warn);border:1px solid rgba(255,159,67,.35)}
+  .kpi.down .ico{background:rgba(255,89,100,.12);color:var(--down);border:1px solid rgba(255,89,100,.35)}
+  .chip{padding:.35rem .8rem;border-radius:999px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);cursor:pointer}
+  .chip.active{background:#102822;border-color:#1f7a66;color:#9af0d8}
+  .badge-soft{border:1px solid var(--border);background:#0f161a;color:#cfe7df;padding:.25rem .55rem;border-radius:10px;font-size:.75rem}
+  .badge-up{color:var(--ok);border-color:rgba(25,227,177,.35)}
+  .badge-down{color:var(--down);border-color:rgba(255,89,100,.35)}
+  .table thead th{color:var(--muted);border-color:var(--border)}
+  .table tbody td{border-color:#1f2937}
+  .table tfoot td{border-top:1px solid var(--border)!important;color:#cfe7df}
+  .btn-outline-light{--bs-btn-color:#e7eef7;--bs-btn-border-color:#6b7280}
+  .modal-content{background:#0f161a;border:1px solid var(--border);color:#e7eef7}
+  .form-control, .form-select{background:#121820;border-color:#2a3441;color:#e7eef7}
+  .form-control:focus, .form-select:focus{background:#121820;color:#e7eef7;border-color:#375a7f;box-shadow:none}
 </style>
+{% endblock %}
 
-<div class="container mt-4">
-  <h2>Flujo de Caja Mensual</h2>
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="page-title">Flujo de Caja Mensual</h2>
+    <div class="d-flex gap-2">
+      <button id="btnExport" class="btn btn-sm btn-outline-light"><i class="bi bi-filetype-csv me-1"></i>Exportar CSV</button>
+    </div>
+  </div>
 
-  <!-- KPIs (con colores) -->
-  <div class="row g-3 mt-2">
-    <div class="col-md-2 col-6">
-      <div class="kpi-card ingresos">
-        <div class="kpi-title">Ingresos</div>
-        <div class="kpi-value">{{ total_ingresos }} €</div>
+  <!-- KPIs -->
+  <div class="row g-3 mb-3">
+    <div class="col-xl-2 col-md-4">
+      <div class="kpi ok">
+        <div class="ico"><i class="bi bi-piggy-bank-fill fs-5"></i></div>
+        <div><div class="meta">Ingresos</div><div class="val" id="kpiIngresos">0 €</div><div class="meta">Último período</div></div>
       </div>
     </div>
-    <div class="col-md-2 col-6">
-      <div class="kpi-card beneficio-prop">
-        <div class="kpi-title">Beneficio Neto Propiedades</div>
-        <div class="kpi-value">{{ beneficio_total_propiedades }} €</div>
+    <div class="col-xl-2 col-md-4">
+      <div class="kpi info">
+        <div class="ico"><i class="bi bi-house-check fs-5"></i></div>
+        <div><div class="meta">Beneficio Propiedades</div><div class="val" id="kpiPropiedades">0 €</div><div class="meta">Neto mensual</div></div>
       </div>
     </div>
-    <div class="col-md-2 col-6">
-      <div class="kpi-card gastos">
-        <div class="kpi-title">Gastos</div>
-        <div class="kpi-value">{{ total_gastos }} €</div>
+    <div class="col-xl-2 col-md-4">
+      <div class="kpi warn">
+        <div class="ico"><i class="bi bi-credit-card-2-front fs-5"></i></div>
+        <div><div class="meta">Gastos</div><div class="val" id="kpiGastos">0 €</div><div class="meta">Último período</div></div>
       </div>
     </div>
-    <div class="col-md-2 col-6">
-      <div class="kpi-card gastos-alquiler">
-        <div class="kpi-title">Gastos Alquiler</div>
-        <div class="kpi-value">{{ total_gastos_alquiler }} €</div>
+    <div class="col-xl-2 col-md-4">
+      <div class="kpi down">
+        <div class="ico"><i class="bi bi-bank fs-5"></i></div>
+        <div><div class="meta">Deuda mensual</div><div class="val" id="kpiDeuda">0 €</div><div class="meta">Hipotecas + préstamos</div></div>
       </div>
     </div>
-    <div class="col-md-2 col-6">
-      <div class="kpi-card balance-prest">
-        <div class="kpi-title">Balance Pend. Préstamos</div>
-        <div class="kpi-value">{{ balance_pendiente_prestamos }} €</div>
+    <div class="col-xl-2 col-md-4">
+      <div class="kpi ok">
+        <div class="ico"><i class="bi bi-cash-coin fs-5"></i></div>
+        <div><div class="meta">Balance total</div><div class="val" id="kpiBalance">0 €</div><div class="meta">Acumulado</div></div>
       </div>
     </div>
-    <div class="col-md-2 col-6">
-      <div class="kpi-card balance-total">
-        <div class="kpi-title">Balance Total</div>
-        <div class="kpi-value">{{ balance_total }} €</div>
+    <div class="col-xl-2 col-md-4">
+      <div class="kpi info">
+        <div class="ico"><i class="bi bi-graph-up-arrow fs-5"></i></div>
+        <div><div class="meta">Tasa de ahorro</div><div class="val" id="kpiAhorro">0 %</div><div class="meta">Ingresos – (gastos+deuda)</div></div>
       </div>
     </div>
   </div>
 
   <!-- Gráfico -->
-  <div class="chart-card mt-4 mb-5">
-    <div class="chart-header">
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
       <span>Flujo de Caja</span>
-      <div>
-        <button class="range-btn active" data-range="3">3M</button>
-        <button class="range-btn" data-range="6">6M</button>
-        <button class="range-btn" data-range="12">1A</button>
-        <button class="range-btn" data-range="60">5A</button>
-        <button class="range-btn" data-range="0">TODO</button>
-        <button id="resetZoom" class="range-btn ms-2">Reset Zoom</button>
+      <div class="d-flex gap-2 align-items-center">
+        <span class="chip active" data-range="3M">3M</span>
+        <span class="chip" data-range="6M">6M</span>
+        <span class="chip" data-range="1A">1A</span>
+        <span class="chip" data-range="5A">5A</span>
+        <span class="chip" data-range="TODO">TODO</span>
+        <button id="btnResetZoom" class="btn btn-sm btn-outline-light">Reset zoom</button>
       </div>
     </div>
-    <div class="chart-body">
-      <div class="chart-wrap"><canvas id="graficoCashflow"></canvas></div>
+    <div class="card-body" style="height:380px">
+      <canvas id="cashflowChart"></canvas>
     </div>
   </div>
 
-  <!-- Ingresos / Gastos -->
-  <div id="ingresos" class="seccion">
-    <h4>Ingresos / Gastos</h4>
-    <button class="btn btn-success mb-2" data-bs-toggle="modal" data-bs-target="#modalIngreso">
-      + Añadir Ingreso
-    </button>
-    <button class="btn btn-danger mb-2 ms-2" data-bs-toggle="modal" data-bs-target="#modalGasto">
-      + Añadir Gasto
-    </button>
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th>Fecha</th>
-          <th>Tipo</th>
-          <th>Categoría</th>
-          <th>Monto</th>
-          <th>Descripción</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in registros %}
-        <tr>
-          <td>{{ r.date }}</td>
-          <td>{{ r.category|title }}</td>
-          <td>{{ r.tipo_ingreso|default_if_none:"-" }}</td>
-          <td>{{ r.amount }} €</td>
-          <td>{{ r.description }}</td>
-          <td>
-            <a href="{% url 'editar_registro' r.id %}" class="btn btn-sm btn-primary">Editar</a>
-            <form action="{% url 'eliminar_registro' r.id %}" method="post" class="d-inline">
-              {% csrf_token %}
-              <button class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar registro?')">Borrar</button>
-            </form>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="6" class="text-center text-muted">Sin registros.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="row g-3">
+    <!-- Ingresos/Gastos -->
+    <div class="col-xl-7">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Ingresos / Gastos</span>
+          <div class="d-flex gap-2">
+            <span class="chip active" data-filter="all">Todos</span>
+            <span class="chip" data-filter="ingreso">Ingresos</span>
+            <span class="chip" data-filter="gasto">Gastos</span>
+            <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#modalNuevoIngreso">+ Añadir ingreso</button>
+            <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#modalNuevoGasto">+ Añadir gasto</button>
+          </div>
+        </div>
+        <div class="table-responsive p-2">
+          <table class="table table-dark table-hover align-middle mb-0" id="tablaMovs">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Categoría</th>
+                <th>Descripción</th>
+                <th class="text-end">Monto</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in registros %}
+              <tr data-tipo="{{ r.category }}">
+                <td>{{ r.date|date:"Y-m-d" }}</td>
+                <td>
+                  {% if r.category == 'ingreso' %}
+                    <span class="badge-soft badge-up">Ingreso</span>
+                  {% else %}
+                    <span class="badge-soft badge-down">Gasto</span>
+                  {% endif %}
+                </td>
+                <td>{{ r.subcategory|default:"-" }}</td>
+                <td>{{ r.description|default:"-" }}</td>
+                <td class="text-end">{{ r.amount|floatformat:2 }} €</td>
+                <td class="text-end">
+                  <!-- EDITAR REGISTRO EN MODAL -->
+                  <button
+                    class="btn btn-sm btn-outline-light"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalEditarRegistro"
+                    data-id="{{ r.id }}"
+                    data-fecha="{{ r.date|date:'Y-m-d' }}"
+                    data-categoria="{{ r.category }}"
+                    data-subcategoria="{{ r.subcategory }}"
+                    data-descripcion="{{ r.description }}"
+                    data-monto="{{ r.amount }}">
+                    Editar
+                  </button>
+                  <form action="{% url 'eliminar_registro' r.id %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar?')">Borrar</button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" class="text-center text-muted">Sin movimientos.</td></tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr><td colspan="4" class="text-end">Total ingresos:</td><td class="text-end" id="footIngresos">0 €</td><td></td></tr>
+              <tr><td colspan="4" class="text-end">Total gastos:</td><td class="text-end" id="footGastos">0 €</td><td></td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Propiedades y Préstamos -->
+    <div class="col-xl-5">
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Propiedades en Alquiler</span>
+          <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#modalNuevaPropiedad">+ Añadir Propiedad</button>
+        </div>
+        <div class="table-responsive p-2">
+          <table class="table table-dark table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th class="text-end">Ingreso</th>
+                <th class="text-end">Hipoteca</th>
+                <th class="text-end">Mantenimiento</th>
+                <th class="text-end">Meses Rest.</th>
+                <th class="text-end">Beneficio Neto</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in propiedades %}
+              <tr>
+                <td>{{ p.nombre }}</td>
+                <td class="text-end">{{ p.ingreso_mensual|floatformat:2 }} €</td>
+                <td class="text-end">{{ p.hipoteca_mensual|floatformat:2 }} €</td>
+                <td class="text-end">{{ p.gastos_mantenimiento|floatformat:2 }} €</td>
+                <td class="text-end">{{ p.meses_restantes_hipoteca }}</td>
+                <td class="text-end">
+                  {% with p.beneficio_neto as bn %}
+                    <span class="badge-soft {% if bn >= 0 %}badge-up{% else %}badge-down{% endif %}">{{ bn|floatformat:2 }} €</span>
+                  {% endwith %}
+                </td>
+                <td class="text-end">
+                  <!-- EDITAR PROPIEDAD EN MODAL -->
+                  <button
+                    class="btn btn-sm btn-outline-light"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalEditarPropiedad"
+                    data-id="{{ p.id }}"
+                    data-nombre="{{ p.nombre }}"
+                    data-ingreso="{{ p.ingreso_mensual }}"
+                    data-hipoteca="{{ p.hipoteca_mensual }}"
+                    data-mant="{{ p.gastos_mantenimiento }}"
+                    data-meses="{{ p.meses_restantes_hipoteca }}"
+                    data-fecha="{{ p.fecha_inicio_hipoteca|date:'Y-m-d' }}">
+                    Editar
+                  </button>
+                  <form action="{% url 'eliminar_propiedad' p.id %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar?')">Borrar</button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="7" class="text-center text-muted">Sin propiedades.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Préstamos Personales</span>
+          <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#modalNuevoPrestamo">+ Añadir Préstamo</button>
+        </div>
+        <div class="table-responsive p-2">
+          <table class="table table-dark table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th class="text-end">Cuota</th>
+                <th class="text-end">Meses Rest.</th>
+                <th class="text-end">Balance</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for pr in prestamos %}
+              <tr>
+                <td>{{ pr.nombre }}</td>
+                <td class="text-end">{{ pr.cuota_mensual|floatformat:2 }} €</td>
+                <td class="text-end">{{ pr.meses_restantes }}</td>
+                <td class="text-end">{{ pr.balance_actual|floatformat:2 }} €</td>
+                <td class="text-end">
+                  <!-- EDITAR PRÉSTAMO EN MODAL -->
+                  <button
+                    class="btn btn-sm btn-outline-light"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalEditarPrestamo"
+                    data-id="{{ pr.id }}"
+                    data-nombre="{{ pr.nombre }}"
+                    data-cuota="{{ pr.cuota_mensual }}"
+                    data-meses="{{ pr.meses_restantes }}"
+                    data-balance="{{ pr.balance_actual }}"
+                    data-fecha="{{ pr.fecha_inicio|date:'Y-m-d' }}">
+                    Editar
+                  </button>
+                  <form action="{% url 'eliminar_prestamo' pr.id %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar?')">Borrar</button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted">Sin préstamos.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- Propiedades -->
-  <div id="propiedades" class="seccion mt-5">
-    <div class="d-flex justify-content-between align-items-center">
-      <h4>Propiedades en Alquiler</h4>
-      <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalPropiedad">+ Añadir
-        Propiedad</button>
+  <!-- =============== MODALES =============== -->
+
+  <!-- Añadir Ingreso -->
+  <div class="modal fade" id="modalNuevoIngreso" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" action="{% url 'agregar_ingreso' %}">
+          {% csrf_token %}
+          <div class="modal-header"><h5 class="modal-title">Añadir ingreso</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <input type="hidden" name="category" value="ingreso">
+            <div class="mb-2"><label>Fecha</label><input type="date" name="date" class="form-control" required></div>
+            <div class="mb-2"><label>Categoría</label><input type="text" name="subcategory" class="form-control" placeholder="Salario, etc."></div>
+            <div class="mb-2"><label>Descripción</label><input type="text" name="description" class="form-control"></div>
+            <div class="mb-2"><label>Monto (€)</label><input type="number" step="0.01" name="amount" class="form-control" required></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
     </div>
-    <table class="table table-striped mt-2">
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Ingreso</th>
-          <th>Hipoteca</th>
-          <th>Meses Restantes</th>
-          <th>Mantenimiento</th>
-          <th>Beneficio Neto</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in propiedades %}
-        <tr>
-          <td>{{ p.nombre }}</td>
-          <td>{{ p.ingreso_mensual }} €</td>
-          <td>{{ p.hipoteca_mensual }} €</td>
-          <td>{{ p.meses_restantes_hipoteca }}</td>
-          <td>{{ p.gastos_mantenimiento }} €</td>
-          <td>{{ p.beneficio_neto }} €</td>
-          <td>
-            <a href="{% url 'editar_propiedad' p.id %}" class="btn btn-sm btn-primary">Editar</a>
-            <form action="{% url 'eliminar_propiedad' p.id %}" method="post" class="d-inline">
-              {% csrf_token %}
-              <button class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar propiedad?')">Borrar</button>
-            </form>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="7" class="text-center text-muted">Sin propiedades.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
   </div>
 
-  <!-- Préstamos -->
-  <div id="prestamos" class="seccion mt-5">
-    <div class="d-flex justify-content-between align-items-center">
-      <h4>Préstamos Personales</h4>
-      <!-- AHORA abre el modal en lugar de navegar -->
-      <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#modalPrestamo">
-        + Añadir Préstamo
-      </button>
+  <!-- Añadir Gasto -->
+  <div class="modal fade" id="modalNuevoGasto" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" action="{% url 'agregar_gasto' %}">
+          {% csrf_token %}
+          <div class="modal-header"><h5 class="modal-title">Añadir gasto</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <input type="hidden" name="category" value="gasto">
+            <div class="mb-2"><label>Fecha</label><input type="date" name="date" class="form-control" required></div>
+            <div class="mb-2"><label>Categoría</label><input type="text" name="subcategory" class="form-control" placeholder="Luz, etc."></div>
+            <div class="mb-2"><label>Descripción</label><input type="text" name="description" class="form-control"></div>
+            <div class="mb-2"><label>Monto (€)</label><input type="number" step="0.01" name="amount" class="form-control" required></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
     </div>
-    <table class="table table-striped mt-2">
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Cuota Mensual</th>
-          <th>Meses Restantes</th>
-          <th>Balance Pendiente</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in prestamos %}
-        <tr>
-          <td>{{ p.nombre }}</td>
-          <td>{{ p.cuota_mensual }} €</td>
-          <td>{{ p.meses_restantes }}</td>
-          <td>{{ p.balance_actual }} €</td>
-          <td>
-            <a class="btn btn-sm btn-primary" href="{% url 'editar_prestamo' p.id %}">Editar</a>
-            <form action="{% url 'eliminar_prestamo' p.id %}" method="post" class="d-inline">
-              {% csrf_token %}
-              <button class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar préstamo?')">Borrar</button>
-            </form>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="5" class="text-center text-muted">Sin préstamos.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
   </div>
+
+  <!-- Editar Registro (Ingreso/Gasto) -->
+  <div class="modal fade" id="modalEditarRegistro" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" id="formEditarRegistro">
+          {% csrf_token %}
+          <div class="modal-header"><h5 class="modal-title">Editar registro</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="mb-2"><label>Fecha</label><input type="date" name="date" id="edit-date" class="form-control" required></div>
+            <div class="mb-2">
+              <label>Tipo</label>
+              <select name="category" id="edit-category" class="form-select">
+                <option value="ingreso">Ingreso</option>
+                <option value="gasto">Gasto</option>
+              </select>
+            </div>
+            <div class="mb-2"><label>Categoría</label><input type="text" name="subcategory" id="edit-subcategory" class="form-control"></div>
+            <div class="mb-2"><label>Descripción</label><input type="text" name="description" id="edit-description" class="form-control"></div>
+            <div class="mb-2"><label>Monto (€)</label><input type="number" step="0.01" name="amount" id="edit-amount" class="form-control" required></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Añadir Propiedad -->
+  <div class="modal fade" id="modalNuevaPropiedad" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" action="{% url 'agregar_propiedad' %}">
+          {% csrf_token %}
+          <div class="modal-header"><h5 class="modal-title">Añadir propiedad</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="mb-2"><label>Nombre</label><input type="text" name="nombre" class="form-control" required></div>
+            <div class="mb-2"><label>Ingreso mensual</label><input type="number" step="0.01" name="ingreso_mensual" class="form-control" required></div>
+            <div class="mb-2"><label>Hipoteca mensual</label><input type="number" step="0.01" name="hipoteca_mensual" class="form-control" required></div>
+            <div class="mb-2"><label>Gastos mantenimiento</label><input type="number" step="0.01" name="gastos_mantenimiento" class="form-control" required></div>
+            <div class="mb-2"><label>Meses restantes hipoteca</label><input type="number" name="meses_restantes_hipoteca" class="form-control" required></div>
+            <div class="mb-2"><label>Inicio hipoteca (opcional)</label><input type="date" name="fecha_inicio_hipoteca" class="form-control"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editar Propiedad -->
+  <div class="modal fade" id="modalEditarPropiedad" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" id="formEditarPropiedad">
+          {% csrf_token %}
+          <div class="modal-header"><h5 class="modal-title">Editar propiedad</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="mb-2"><label>Nombre</label><input type="text" name="nombre" id="prop-nombre" class="form-control" required></div>
+            <div class="mb-2"><label>Ingreso mensual</label><input type="number" step="0.01" name="ingreso_mensual" id="prop-ingreso" class="form-control" required></div>
+            <div class="mb-2"><label>Hipoteca mensual</label><input type="number" step="0.01" name="hipoteca_mensual" id="prop-hipoteca" class="form-control" required></div>
+            <div class="mb-2"><label>Gastos mantenimiento</label><input type="number" step="0.01" name="gastos_mantenimiento" id="prop-mant" class="form-control" required></div>
+            <div class="mb-2"><label>Meses restantes hipoteca</label><input type="number" name="meses_restantes_hipoteca" id="prop-meses" class="form-control" required></div>
+            <div class="mb-2"><label>Inicio hipoteca</label><input type="date" name="fecha_inicio_hipoteca" id="prop-fecha" class="form-control"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Añadir Préstamo -->
+  <div class="modal fade" id="modalNuevoPrestamo" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" action="{% url 'agregar_prestamo' %}">
+          {% csrf_token %}
+          <div class="modal-header"><h5 class="modal-title">Añadir préstamo</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="mb-2"><label>Nombre</label><input type="text" name="nombre" class="form-control" required></div>
+            <div class="mb-2"><label>Cuota mensual</label><input type="number" step="0.01" name="cuota_mensual" class="form-control" required></div>
+            <div class="mb-2"><label>Meses restantes</label><input type="number" name="meses_restantes" class="form-control" required></div>
+            <div class="mb-2"><label>Balance actual</label><input type="number" step="0.01" name="balance_actual" class="form-control"></div>
+            <div class="mb-2"><label>Fecha inicio (opcional)</label><input type="date" name="fecha_inicio" class="form-control"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editar Préstamo -->
+  <div class="modal fade" id="modalEditarPrestamo" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" id="formEditarPrestamo">
+          {% csrf_token %}
+          <div class="modal-header"><h5 class="modal-title">Editar préstamo</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="mb-2"><label>Nombre</label><input type="text" name="nombre" id="loan-nombre" class="form-control" required></div>
+            <div class="mb-2"><label>Cuota mensual</label><input type="number" step="0.01" name="cuota_mensual" id="loan-cuota" class="form-control" required></div>
+            <div class="mb-2"><label>Meses restantes</label><input type="number" name="meses_restantes" id="loan-meses" class="form-control" required></div>
+            <div class="mb-2"><label>Balance actual</label><input type="number" step="0.01" name="balance_actual" id="loan-balance" class="form-control"></div>
+            <div class="mb-2"><label>Fecha inicio</label><input type="date" name="fecha_inicio" id="loan-fecha" class="form-control"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
 </div>
+{% endblock %}
 
-<!-- Modales -->
-{% include 'alpha_quantum/cashflow/modales_ingreso_gasto.html' %}
-{% include 'alpha_quantum/cashflow/modal_propiedad.html' %}
-{% include 'alpha_quantum/cashflow/modal_prestamo.html' %}
-
-<!-- Librerías -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
-
 <script>
-  /* === Datos Django === */
-  const LABELS_ALL = {{ labels_grafico| safe }};
-  const DATA_ING = {{ valores_ingresos| safe }};
-  const DATA_GAS = {{ valores_gastos| safe }};
-  const DATA_BAL = {{ valores_balance| safe }};
-  const DATA_HIP = {{ valores_hipoteca_restante| safe }};
-  const DATA_CUENTAS = {{ valores_balance_cuentas| safe }};
-
-  /* === Colores (coinciden con KPI) === */
-  const COLORS = {
-    ing: '#22c55e',  // verde
-    gas: '#ef4444',  // rojo
-    hip: '#b91c1c',  // rojo oscuro
-    bal: '#3b82f6',  // azul
-    cue: '#f59e0b'   // amarillo
-  };
-
-  function sliceLastN(n) {
-    if (!n || n <= 0) return {
-      labels: [...LABELS_ALL], ing: [...DATA_ING], gas: [...DATA_GAS],
-      bal: [...DATA_BAL], hip: [...DATA_HIP], cue: [...DATA_CUENTAS],
-    };
-    const s = Math.max(0, LABELS_ALL.length - n);
-    return {
-      labels: LABELS_ALL.slice(s),
-      ing: DATA_ING.slice(s),
-      gas: DATA_GAS.slice(s),
-      bal: DATA_BAL.slice(s),
-      hip: DATA_HIP.slice(s),
-      cue: DATA_CUENTAS.slice(s),
-    };
+  // ========= Helpers =========
+  const fmtEUR = v => new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(Number(v||0));
+  const fmtPct = v => `${Number(v||0).toFixed(2)} %`;
+  function parseEURCell(text){
+    return parseFloat(String(text||'0').replace(/\s|€/g,'').replace(/\./g,'').replace(',', '.'))||0;
   }
 
-  if (window.__cashflowChart) { try { window.__cashflowChart.destroy(); } catch (e) { } }
-
-  let currentRange = 3;
-  let sliced = sliceLastN(currentRange);
-  const ctx = document.getElementById('graficoCashflow').getContext('2d');
-
-  window.__cashflowChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: sliced.labels,
-      datasets: [
-        { label: 'Ingresos', order: 1, data: sliced.ing, borderColor: COLORS.ing, pointBackgroundColor: COLORS.ing, pointBorderColor: COLORS.ing, fill: false, borderWidth: 3, pointRadius: 2, tension: .35 },
-        { label: 'Gastos', order: 2, data: sliced.gas, borderColor: COLORS.gas, pointBackgroundColor: COLORS.gas, pointBorderColor: COLORS.gas, fill: false, borderWidth: 3, pointRadius: 2, tension: .35 },
-        { label: 'Préstamos/Hipoteca', order: 3, data: sliced.hip, borderColor: COLORS.hip, pointBackgroundColor: COLORS.hip, pointBorderColor: COLORS.hip, fill: false, borderWidth: 3, pointRadius: 2, tension: .35 },
-        { label: 'Balance', order: 4, data: sliced.bal, borderColor: COLORS.bal, pointBackgroundColor: COLORS.bal, pointBorderColor: COLORS.bal, fill: false, borderWidth: 3, pointRadius: 2, tension: .35 },
-        { label: 'Balance de Cuentas', order: 5, data: sliced.cue, borderColor: COLORS.cue, pointBackgroundColor: COLORS.cue, pointBorderColor: COLORS.cue, fill: false, borderWidth: 3, pointRadius: 2, tension: .35 }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      elements: { line: { borderWidth: 3 }, point: { radius: 2 } },
-      plugins: {
-        legend: { labels: { color: '#fff', usePointStyle: true, boxWidth: 10, boxHeight: 10 } },
-        tooltip: { mode: 'index', intersect: false, backgroundColor: '#222', titleColor: '#fff', bodyColor: '#fff' },
-        zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' }, pan: { enabled: true, mode: 'xy' } }
+  // ========= Estado gráfico =========
+  let cashflowChart=null;
+  function renderChart(payload){
+    const {labels, ingresos, gastos, deuda_total, balance_cuentas, deuda_mensual}=payload;
+    const ctx=document.getElementById('cashflowChart').getContext('2d');
+    if(cashflowChart) cashflowChart.destroy();
+    const stackedMax=Math.max(...(ingresos||[0]),...((gastos||[]).map((g,i)=>g+(deuda_mensual?.[i]||0))));
+    cashflowChart=new Chart(ctx,{
+      data:{
+        labels,
+        datasets:[
+          {type:'bar',label:'Ingresos',data:ingresos,yAxisID:'yIngresos',backgroundColor:'#19e3b1',stack:'cashflowIn'},
+          {type:'bar',label:'Gastos',data:gastos,yAxisID:'yIngresos',backgroundColor:'#ff5964',stack:'cashflow'},
+          {type:'bar',label:'Deuda mensual',data:deuda_mensual,yAxisID:'yIngresos',backgroundColor:'#feca57',stack:'cashflow'},
+          {type:'line',label:'Deuda total',data:deuda_total,yAxisID:'yDeuda',borderColor:'#ff9f43',tension:.3,borderWidth:2,pointRadius:0,fill:false},
+          {type:'line',label:'Balance de cuentas',data:balance_cuentas,yAxisID:'yDeuda',borderColor:'#4ea8ff',backgroundColor:'rgba(78,168,255,.12)',tension:.3,borderWidth:2,pointRadius:0,fill:true}
+        ]
       },
-      interaction: { mode: 'nearest', axis: 'x', intersect: false },
-      scales: { x: { ticks: { color: '#fff' }, grid: { color: '#444' } }, y: { beginAtZero: true, ticks: { color: '#fff' }, grid: { color: '#444' } } }
-    }
-  });
-
-  function setActive(btn) {
-    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  }
-  document.querySelectorAll('.range-btn[data-range]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const n = Number(btn.dataset.range);
-      const s = sliceLastN(n);
-      const ch = window.__cashflowChart;
-      ch.data.labels = s.labels;
-      ch.data.datasets[0].data = s.ing;
-      ch.data.datasets[1].data = s.gas;
-      ch.data.datasets[2].data = s.hip;
-      ch.data.datasets[3].data = s.bal;
-      ch.data.datasets[4].data = s.cue;
-      ch.update();
-      setActive(btn);
+      options:{
+        responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:{color:'#cfe7df'}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtEUR(ctx.parsed.y)}`}}},
+        scales:{
+          yIngresos:{position:'left',ticks:{color:'#cfe7df',callback:v=>fmtEUR(v)},grid:{color:'#1f2730'},suggestedMin:0,suggestedMax:stackedMax*1.2},
+          yDeuda:{position:'right',ticks:{color:'#cfe7df',callback:v=>fmtEUR(v)},grid:{drawOnChartArea:false}},
+          x:{ticks:{color:'#cfe7df'},grid:{color:'#1f2730'}}
+        }
+      }
     });
+  }
+
+  // ========= KPIs + carga de serie =========
+  function setKpiLabels(kpis){
+    document.getElementById('kpiIngresos').textContent=fmtEUR(kpis.ingresos);
+    document.getElementById('kpiPropiedades').textContent=fmtEUR(kpis.beneficio_propiedades);
+    document.getElementById('kpiGastos').textContent=fmtEUR(kpis.gastos);
+    document.getElementById('kpiDeuda').textContent=fmtEUR(kpis.deuda_mensual);
+    document.getElementById('kpiBalance').textContent=fmtEUR(kpis.balance_total);
+    let tasa=typeof kpis.tasa_ahorro==='number'?kpis.tasa_ahorro:(kpis.ingresos>0?((kpis.ingresos-(kpis.gastos+kpis.deuda_mensual))/kpis.ingresos*100):0);
+    document.getElementById('kpiAhorro').textContent=fmtPct(tasa);
+    try{
+      const mesLabel=kpis.mes||'';
+      const metaIngresos=document.getElementById('kpiIngresos').parentElement.querySelectorAll('.meta');
+      const metaGastos=document.getElementById('kpiGastos').parentElement.querySelectorAll('.meta');
+      if(metaIngresos[1]) metaIngresos[1].textContent=`Último período: ${mesLabel}`;
+      if(metaGastos[1]) metaGastos[1].textContent=`Último período: ${mesLabel}`;
+    }catch(_){}
+  }
+
+  async function loadSeries(range='3M'){
+    try{
+      const res=await fetch(`/api/cashflow/series?range=${encodeURIComponent(range)}`);
+      const d=await res.json();
+      setKpiLabels(d.kpis||{});
+      renderChart(d);
+    }catch(e){ console.error('Error cargando series de cashflow:',e); }
+  }
+
+  // ========= Filtros de la tabla + totales =========
+  function refreshFooters(){
+    const rows=[...document.querySelectorAll('#tablaMovs tbody tr')].filter(r=>r.style.display!=='none');
+    let totalIngresos=0,totalGastos=0;
+    rows.forEach(r=>{
+      const valCell=r.querySelector('td.text-end'); const val=parseEURCell(valCell?valCell.textContent:'0');
+      if(r.dataset.tipo==='ingreso') totalIngresos+=val; else totalGastos+=val;
+    });
+    document.getElementById('footIngresos').textContent=fmtEUR(totalIngresos);
+    document.getElementById('footGastos').textContent=fmtEUR(totalGastos);
+  }
+
+  function bindTableFilters(){
+    document.querySelectorAll('[data-filter]').forEach(chip=>{
+      chip.addEventListener('click',()=>{
+        document.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('active'));
+        chip.classList.add('active');
+        const filter=chip.dataset.filter;
+        document.querySelectorAll('#tablaMovs tbody tr').forEach(tr=>{
+          tr.style.display=(filter==='all'||tr.dataset.tipo===filter)?'':'none';
+        });
+        refreshFooters();
+      });
+    });
+  }
+
+  // ========= Export =========
+  document.getElementById('btnExport').addEventListener('click',()=>{ window.location.href="{% url 'cashflow_export_csv' %}"; });
+
+  // ========= Rango del gráfico =========
+  function bindRangeChips(){
+    document.querySelectorAll('[data-range]').forEach(chip=>{
+      chip.addEventListener('click',()=>{
+        document.querySelectorAll('[data-range]').forEach(x=>x.classList.remove('active'));
+        chip.classList.add('active'); loadSeries(chip.dataset.range);
+      });
+    });
+    document.getElementById('btnResetZoom').addEventListener('click',()=>{
+      const active=document.querySelector('[data-range].active');
+      loadSeries(active?active.dataset.range:'3M');
+    });
+  }
+
+  // ========= Modales EDITAR (relleno + action) =========
+  const getUrlEditarRegistro = (id) => `{% url 'editar_registro' 0 %}`.replace('/0/','/'+id+'/');
+  const getUrlEditarPropiedad = (id) => `{% url 'editar_propiedad' 0 %}`.replace('/0/','/'+id+'/');
+  const getUrlEditarPrestamo = (id) => `{% url 'editar_prestamo' 0 %}`.replace('/0/','/'+id+'/');
+
+  // Registro
+  const modalReg=document.getElementById('modalEditarRegistro');
+  modalReg.addEventListener('show.bs.modal', ev=>{
+    const b=ev.relatedTarget;
+    document.getElementById('formEditarRegistro').action=getUrlEditarRegistro(b.dataset.id);
+    document.getElementById('edit-date').value=b.dataset.fecha||'';
+    document.getElementById('edit-category').value=b.dataset.categoria||'ingreso';
+    document.getElementById('edit-subcategory').value=b.dataset.subcategoria||'';
+    document.getElementById('edit-description').value=b.dataset.descripcion||'';
+    document.getElementById('edit-amount').value=b.dataset.monto||'';
   });
 
-  const rz = document.getElementById('resetZoom');
-  if (rz) rz.addEventListener('click', () => window.__cashflowChart.resetZoom());
+  // Propiedad
+  const modalProp=document.getElementById('modalEditarPropiedad');
+  modalProp.addEventListener('show.bs.modal', ev=>{
+    const b=ev.relatedTarget;
+    document.getElementById('formEditarPropiedad').action=getUrlEditarPropiedad(b.dataset.id);
+    document.getElementById('prop-nombre').value=b.dataset.nombre||'';
+    document.getElementById('prop-ingreso').value=b.dataset.ingreso||'';
+    document.getElementById('prop-hipoteca').value=b.dataset.hipoteca||'';
+    document.getElementById('prop-mant').value=b.dataset.mant||'';
+    document.getElementById('prop-meses').value=b.dataset.meses||'';
+    document.getElementById('prop-fecha').value=b.dataset.fecha||'';
+  });
+
+  // Préstamo
+  const modalLoan=document.getElementById('modalEditarPrestamo');
+  modalLoan.addEventListener('show.bs.modal', ev=>{
+    const b=ev.relatedTarget;
+    document.getElementById('formEditarPrestamo').action=getUrlEditarPrestamo(b.dataset.id);
+    document.getElementById('loan-nombre').value=b.dataset.nombre||'';
+    document.getElementById('loan-cuota').value=b.dataset.cuota||'';
+    document.getElementById('loan-meses').value=b.dataset.meses||'';
+    document.getElementById('loan-balance').value=b.dataset.balance||'';
+    document.getElementById('loan-fecha').value=b.dataset.fecha||'';
+  });
+
+  // ========= Init =========
+  document.addEventListener('DOMContentLoaded',()=>{
+    bindTableFilters(); refreshFooters();
+    bindRangeChips(); loadSeries('3M');
+  });
 </script>
 {% endblock %}

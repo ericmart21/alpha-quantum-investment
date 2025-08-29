@@ -13,7 +13,6 @@ from .models.dividendo import Dividendo
 from .models.calendario import EventoFinanciero
 from .models.transaccion import Transaccion
 
-
 # === Claves de API (desde settings.py) ===
 TWELVE_DATA_API_KEY = getattr(settings, "TWELVE_DATA_API_KEY", None)
 FINNHUB_API_KEY = getattr(settings, "FINNHUB_API_KEY", None)
@@ -93,6 +92,103 @@ def calcular_resumen(acciones):
         "valor_actual": float(valor_actual),
         "rentabilidad": float(rentabilidad),
     }
+
+
+# =============================================================================
+# Serie de precios (para gráfico) + fundamentales
+# =============================================================================
+def obtener_serie_precios_diaria(ticker: str, dias: int = 100):
+    """
+    Devuelve dos listas (fechas ASC, cierres ASC).
+    Prefiere Twelve Data. Si no hay clave, intenta Alpha Vantage.
+    """
+    # 1) Twelve Data
+    if TWELVE_DATA_API_KEY:
+        try:
+            url = "https://api.twelvedata.com/time_series"
+            params = {
+                "symbol": ticker,
+                "interval": "1day",
+                "outputsize": dias,
+                "order": "ASC",   # fechas en ascendente
+                "apikey": TWELVE_DATA_API_KEY,
+            }
+            r = requests.get(url, params=params, timeout=15)
+            r.raise_for_status()
+            js = r.json()
+            vals = js.get("values", [])
+            fechas = [row["datetime"][:10] for row in vals]
+            cierres = [float(row["close"]) for row in vals]
+            return fechas, cierres
+        except Exception as e:
+            print(f"[TwelveData] Serie diaria error {ticker}: {e}")
+
+    # 2) Alpha Vantage (fallback)
+    if ALPHA_VANTAGE_API_KEY:
+        try:
+            url = "https://www.alphavantage.co/query"
+            params = {
+                "function": "TIME_SERIES_DAILY_ADJUSTED",
+                "symbol": ticker,
+                "outputsize": "compact",  # ~100 días
+                "apikey": ALPHA_VANTAGE_API_KEY,
+            }
+            r = requests.get(url, params=params, timeout=20)
+            r.raise_for_status()
+            js = r.json()
+            ts = js.get("Time Series (Daily)") or {}
+            fechas = sorted(ts.keys())
+            cierres = []
+            for d in fechas:
+                item = ts[d]
+                c = item.get("5. adjusted close") or item.get("4. close")
+                cierres.append(float(c))
+            # recorta por si vienen más de 'dias'
+            if len(fechas) > dias:
+                fechas = fechas[-dias:]
+                cierres = cierres[-dias:]
+            return fechas, cierres
+        except Exception as e:
+            print(f"[AlphaVantage] Serie diaria error {ticker}: {e}")
+
+    return [], []
+
+
+def get_prices_and_fundamentals(ticker: str):
+    """
+    Helper para la vista de Análisis Fundamental:
+    - fechas + cierres (ASC, hasta hoy)
+    - fundamentales 'normalizados' (campos clave)
+    """
+    fechas, cierres = obtener_serie_precios_diaria(ticker, dias=100)
+    fun = obtener_datos_fundamentales_alpha_vantage(ticker) or {}
+
+    # Normaliza nombres para la UI
+    fundamentales = {
+        "Name": fun.get("nombre"),
+        "Sector": fun.get("sector"),
+        "Industry": fun.get("industria"),
+        "Country": fun.get("pais"),
+        "FullTimeEmployees": fun.get("empleados"),
+        "PER": _to_float(fun.get("PER")),
+        "ROE": _to_float(fun.get("ROE")),
+        "ROIC": None,  # Alpha Vantage OVERVIEW no expone ROIC/ROI
+        "DebtToEquity": _to_float(fun.get("deuda_equity")),
+        "EPS": _to_float(fun.get("EPS")),
+        "DividendPerShare": _to_float(fun.get("dividendo")),
+        "MarketCapitalization": _to_float(fun.get("capitalizacion")),
+        "NetIncomeTTM": None,  # OVERVIEW no incluye NetIncomeTTM
+    }
+    return fechas, cierres, fundamentales
+
+
+def _to_float(v):
+    try:
+        if v in (None, "", "N/A", "None"):
+            return None
+        return float(v)
+    except Exception:
+        return None
 
 
 # =============================================================================
@@ -222,16 +318,25 @@ def calcular_upside(valor_objetivo, precio_actual):
 
 
 def generar_recomendacion(upside):
+    """
+    Regla solicitada:
+      > 10%  -> COMPRAR
+      0–10%  -> REVISAR
+      < 0%   -> ESPERAR
+    """
+    if upside is None:
+        return None
     try:
         up = Decimal(upside)
-        if up > 20:
-            return "Comprar"
-        elif up >= 5:
-            return "Mantener"
-        else:
-            return "Vender"
     except Exception:
-        return "Esperar"
+        return None
+
+    if up > Decimal("10"):
+        return "COMPRAR"
+    elif up < Decimal("0"):
+        return "ESPERAR"
+    else:
+        return "REVISAR"
 
 
 # =============================================================================

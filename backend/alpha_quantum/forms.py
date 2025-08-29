@@ -65,8 +65,13 @@ class CustomLoginForm(AuthenticationForm):
         })
     )
 
-from .models.watchlist import Watchlist
+from .models.watchlist import Watchlist, WatchlistLista
 
+class WatchlistListaForm(forms.ModelForm):
+    class Meta:
+        model = WatchlistLista
+        fields = ['titulo', 'descripcion']
+        
 class WatchlistForm(forms.ModelForm):
     class Meta:
         model = Watchlist

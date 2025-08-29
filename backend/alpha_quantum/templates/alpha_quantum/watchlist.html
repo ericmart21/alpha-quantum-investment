@@ -2,101 +2,479 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>📌 Watchlist de Acciones</h2>
-        <a href="{% url 'añadir_watchlist' %}" class="btn btn-success">➕ Añadir acción</a>
+
+<style>
+  /* -------------------- ESTILOS -------------------- */
+  .wl-wrap{max-width:1350px;margin:0 auto}
+
+  /* Header */
+  .wl-header{display:flex;align-items:center;gap:.75rem;margin:18px 0 10px}
+  .wl-header h2{margin:0;font-weight:700}
+  .wl-kpis{flex:1;height:30px;border-radius:8px;background:#1c2128;border:1px solid #2a2f3a;
+           display:flex;align-items:center;padding:0 .75rem;gap:.75rem}
+  .wl-kpis small{opacity:.85}
+  .wl-actions-top{display:flex;gap:.5rem}
+  .wl-actions-top .btn{border-radius:10px}
+
+  /* Filtros */
+  .wl-filtros{background:#11161c;border:1px solid #2a2f3a;border-radius:12px;padding:12px;margin-bottom:14px}
+  .wl-filtros .form-select,.wl-filtros .form-control{background:#0e1319;border-color:#2a2f3a;color:#cfd6e4}
+  .wl-filtros .btn{border-radius:10px}
+
+  /* Card lista */
+  .wl-card{border:1px solid #2a2f3a;background:#0e1319;border-radius:14px;margin-bottom:14px;overflow:hidden;transition:box-shadow .2s}
+  .wl-card:hover{box-shadow:0 0 0 1px #2a2f3a}
+  .wl-card-header{display:flex;align-items:center;gap:10px;padding:14px 16px;background:#11161c;border-bottom:1px solid #2a2f3a}
+  .wl-card-title{font-weight:700;font-size:18px;margin:0}
+  .wl-badge{font-size:.85rem;opacity:.85}
+  .wl-card-header-right{margin-left:auto;display:flex;align-items:center;gap:.35rem}
+
+  .btn-ghost{background:transparent;border:1px solid #2a2f3a;color:#cfd6e4}
+  .btn-ghost:hover{background:#1b212b;color:#fff}
+  .btn-danger-outline{border:1px solid #7a3030;color:#ff7676;background:transparent}
+  .btn-danger-outline:hover{background:#7a3030;color:#fff}
+
+  /* Chevron colapsable */
+  .btn-chev{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:8px}
+  .btn-chev i{transition:transform .2s}
+  .btn-chev.collapsed i{transform:rotate(-90deg)}
+
+  /* Tabs y panes */
+  .wl-tabs{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid #2a2f3a;background:#0e1319}
+  .wl-tabs .btn{border-radius:10px}
+  .wl-tabs .btn.active{background:#0d6efd;border-color:#0d6efd;color:#fff}
+  .wl-panes{padding:0}
+  .wl-pane{display:none}
+  .wl-pane.is-active{display:block}
+
+  /* Tabla */
+  .wl-card-body{padding:0}
+  .wl-table{width:100%;border-collapse:separate;border-spacing:0}
+  .wl-table thead th{
+    font-weight:600;background:#131a22;border-bottom:1px solid #2a2f3a;color:#cfd6e4;
+    padding:10px 12px;position:sticky;top:0;z-index:5
+  }
+  .wl-table tbody td{padding:12px;border-bottom:1px solid #19202a}
+  .wl-table tbody tr:nth-child(even){background:#0f141b}
+  .wl-table tbody tr:hover{background:#101824}
+
+  /* Píldoras y números */
+  .ticker-pill{display:inline-block;padding:.2rem .55rem;border:1px solid #2a2f3a;border-radius:999px;
+               font-weight:700;background:#0f1520}
+  .col-ticker{white-space:nowrap}
+  .price,.num{font-variant-numeric:tabular-nums}
+  .muted{opacity:.7}
+
+  /* Chips */
+  .chip{display:inline-block;padding:.2rem .55rem;border-radius:.6rem;font-size:.85rem}
+  .chip-green{background:#14351f;color:#94e1a6}
+  .chip-red{background:#3a1b1b;color:#ff9d9d}
+  .chip-gray{background:#202632;color:#cfd6e4}
+  .rec-buy{background:#10361f;color:#8ce09f}
+  .rec-hold{background:#23304a;color:#a3b5ff}
+  .rec-wait{background:#3a1e1e;color:#ffb0b0}
+
+  /* Acciones (iconos compactos) */
+  .row-actions-icons{display:flex;align-items:center;justify-content:center;gap:6px}
+  .row-actions-icons .btn{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:8px}
+  .row-actions-icons .btn i{font-size:16px;line-height:1}
+
+  /* Modales */
+  .modal .form-control,.modal .form-select{background:#0e1319;border-color:#2a2f3a;color:#cfd6e4}
+</style>
+
+
+<div class="wl-wrap">
+  <!-- CABECERA -->
+  <div class="wl-header">
+    <h2>Watchlist</h2>
+
+    <div class="wl-kpis">
+      <small><span class="text-danger">{{ stats.over|default:0 }}</span> Overvalued</small>
+      <small><span class="text-success">{{ stats.under|default:0 }}</span> Undervalued</small>
     </div>
 
-    <table class="table table-dark table-hover">
-        <thead>
-            <tr>
-                <th>Ticker</th>
-                <th>Precio Actual</th>
-                <th>Valor Objetivo</th>
-                <th>Upside</th>
-                <th>Señal</th>
-                <th>📈 Máx 52s</th>
-                <th>📉 Mín 52s</th>
-                <th>PER</th>
-                <th>Recomendación</th>
-            </tr>
-        </thead>
-        <tbody id="tabla-watchlist">
-            {% for accion in acciones %}
-            <tr>
-                <td>{{ accion.ticker }}</td>
-                <td>{{ accion.precio_actual|floatformat:2 }} €</td>
-                <td>
-                    {% if accion.upside > 0 %}
-                    <span class="text-success">{{ accion.upside|floatformat:2 }}% 🔼</span>
-                    {% elif accion.upside < 0 %} <span class="text-danger">{{ accion.upside|floatformat:2 }}% 🔽</span>
+    <div class="wl-actions-top">
+      <button class="btn btn-ghost" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse">
+        <i class="bi bi-funnel"></i>
+      </button>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNewList" title="Nueva lista">
+        <i class="bi bi-plus-lg"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- FILTROS -->
+  <div id="filtrosCollapse" class="collapse">
+    <form class="wl-filtros" action="{% url 'ver_watchlists' %}" method="get">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-6">
+          <label class="form-label mb-1">Buscar</label>
+          <input class="form-control" name="q" placeholder="Ej: AAPL, NVDA, Tesla" value="{{ filtros.q }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label mb-1">Estado</label>
+          <select class="form-select" name="estado">
+            <option value="">Todos</option>
+            <option value="COMPRAR" {% if filtros.estado == 'COMPRAR' %}selected{% endif %}>Comprar</option>
+            <option value="REVISAR" {% if filtros.estado == 'REVISAR' %}selected{% endif %}>Revisar</option>
+            <option value="ESPERAR" {% if filtros.estado == 'ESPERAR' %}selected{% endif %}>Esperar</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label mb-1">Orden</label>
+          <select class="form-select" name="orden">
+            <option value="ticker"   {% if filtros.orden == 'ticker' %}selected{% endif %}>Ticker ↑</option>
+            <option value="-ticker"  {% if filtros.orden == '-ticker' %}selected{% endif %}>Ticker ↓</option>
+            <option value="upside"   {% if filtros.orden == 'upside' %}selected{% endif %}>Upside ↑</option>
+            <option value="-upside"  {% if filtros.orden == '-upside' %}selected{% endif %}>Upside ↓</option>
+            <option value="precio"   {% if filtros.orden == 'precio' %}selected{% endif %}>Precio ↑</option>
+            <option value="-precio"  {% if filtros.orden == '-precio' %}selected{% endif %}>Precio ↓</option>
+            <option value="per"      {% if filtros.orden == 'per' %}selected{% endif %}>PER ↑</option>
+            <option value="-per"     {% if filtros.orden == '-per' %}selected{% endif %}>PER ↓</option>
+          </select>
+        </div>
+        <div class="col-12 d-flex gap-2">
+          <button class="btn btn-primary" title="Aplicar"><i class="bi bi-check2"></i></button>
+          <a class="btn btn-ghost" href="{% url 'ver_watchlists' %}" title="Limpiar filtros">
+            <i class="bi bi-arrow-counterclockwise"></i>
+          </a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- LISTAS -->
+  {% for l in listas %}
+  <div class="wl-card" id="wl-card-{{ l.id }}">
+    <div class="wl-card-header">
+      <!-- Chevron para colapsar -->
+      <button class="btn btn-ghost btn-chev collapsed" type="button"
+              data-bs-toggle="collapse" data-bs-target="#wl-body-{{ l.id }}" aria-expanded="false"
+              aria-controls="wl-body-{{ l.id }}">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+
+      <h3 class="wl-card-title mb-0">{{ l.titulo }}</h3>
+      <span class="wl-badge text-muted">{{ l.count }} symbols</span>
+
+      <div class="wl-card-header-right">
+        <a href="{% url 'refrescar_watchlist' l.id %}" class="btn btn-sm btn-ghost" title="Actualizar">
+          <i class="bi bi-arrow-repeat"></i>
+        </a>
+        <a href="{% url 'exportar_watchlist_csv' l.id %}" class="btn btn-sm btn-ghost" title="Exportar CSV">
+          <i class="bi bi-download"></i>
+        </a>
+        <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modalAdd"
+                data-lista="{{ l.id }}" data-titulo="{{ l.titulo }}" title="Añadir acción">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+        <button class="btn btn-sm btn-danger-outline" data-bs-toggle="modal" data-bs-target="#modalDeleteList"
+                data-lista="{{ l.id }}" data-titulo="{{ l.titulo }}" title="Eliminar lista">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- CUERPO DESPLEGABLE -->
+    <div id="wl-body-{{ l.id }}" class="collapse">
+      <div class="wl-card-body">
+
+        <!-- TABS FUNCIONALES -->
+        <div class="wl-tabs" role="tablist" id="tabs-{{ l.id }}">
+          <button class="btn btn-primary btn-sm active" data-tab="details" data-list="{{ l.id }}" title="Detalles">
+            <i class="bi bi-list-task"></i>
+          </button>
+          <button class="btn btn-ghost btn-sm" data-tab="news" data-list="{{ l.id }}" title="Noticias">
+            <i class="bi bi-newspaper"></i>
+          </button>
+          <button class="btn btn-ghost btn-sm" data-tab="analysis" data-list="{{ l.id }}" title="Análisis">
+            <i class="bi bi-graph-up"></i>
+          </button>
+        </div>
+
+        <!-- PANES -->
+        <div class="wl-panes" id="wl-panes-{{ l.id }}">
+          <!-- DETAILS -->
+          <div class="wl-pane is-active" data-pane="details">
+            {% if l.acciones %}
+            <div class="table-responsive">
+              <table class="wl-table align-middle">
+                <thead>
+                  <tr>
+                    <th style="width:120px">Ticker</th>
+                    <th>Nombre</th>
+                    <th class="text-end" style="width:110px">Precio</th>
+                    <th class="text-end" style="width:110px">Objetivo</th>
+                    <th class="text-end" style="width:110px">Ups. Obj.</th>
+                    <th class="text-end" style="width:110px">Mín 52s</th>
+                    <th class="text-end" style="width:110px">Máx 52s</th>
+                    <th class="text-end" style="width:90px">PER</th>
+                    <th style="width:150px">Recomendación</th>
+                    <th class="text-center" style="width:110px">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for a in l.acciones %}
+                  {% with up=a.upside %}
+                  <tr>
+                    <td class="col-ticker"><span class="ticker-pill">{{ a.ticker }}</span></td>
+                    <td class="text-truncate" style="max-width:360px">{{ a.nombre|default:"—" }}</td>
+
+                    <td class="text-end price">
+                      {% if a.precio_actual %}{{ a.precio_actual|floatformat:2 }}{% else %}<span class="muted">N/A</span>{% endif %}
+                    </td>
+                    <td class="text-end price">
+                      {% if a.valor_objetivo %}{{ a.valor_objetivo|floatformat:2 }}{% else %}<span class="muted">—</span>{% endif %}
+                    </td>
+
+                    <!-- Upside respecto a objetivo -->
+                    <td class="text-end">
+                      {% if up is not None %}
+                        {% if up > 10 %}
+                          <span class="chip chip-green">{{ up|floatformat:2 }}%</span>
+                        {% elif up < 0 %}
+                          <span class="chip chip-red">{{ up|floatformat:2 }}%</span>
                         {% else %}
-                        <span class="text-warning">0%</span>
+                          <span class="chip chip-gray">{{ up|floatformat:2 }}%</span>
                         {% endif %}
-                </td>
-                <td>
-                    {% if accion.upside > 20 %}
-                    <span class="badge bg-success">Comprar</span>
-                    {% elif accion.upside < -10 %} <span class="badge bg-danger">Vender</span>
+                      {% else %}
+                        <span class="muted">N/A</span>
+                      {% endif %}
+                    </td>
+
+                    <td class="text-end price">{% if a.min_52s %}{{ a.min_52s|floatformat:2 }}{% else %}<span class="muted">—</span>{% endif %}</td>
+                    <td class="text-end price">{% if a.max_52s %}{{ a.max_52s|floatformat:2 }}{% else %}<span class="muted">—</span>{% endif %}</td>
+                    <td class="text-end num">{% if a.per %}{{ a.per|floatformat:2 }}{% else %}<span class="muted">—</span>{% endif %}</td>
+
+                    <!-- Recomendación calculada (regla: >10 COMPRAR, <0 ESPERAR, else REVISAR) -->
+                    <td>
+                      {% if up is not None %}
+                        {% if up > 10 %}
+                          <span class="chip rec-buy">Comprar</span>
+                        {% elif up < 0 %}
+                          <span class="chip rec-wait">Esperar</span>
                         {% else %}
-                        <span class="badge bg-secondary">Esperar</span>
+                          <span class="chip rec-hold">Revisar</span>
                         {% endif %}
-                </td>
-                <td>{{ accion.max_52s|floatformat:2 }} €</td>
-                <td>{{ accion.min_52s|floatformat:2 }} €</td>
-                <td>{{ accion.recomendacion }}</td>
-                <td>
-                    <a href="{% url 'editar_accion_watchlist' accion.id %}" class="btn btn-primary btn-sm">Editar</a>
-                    <a href="{% url 'eliminar_watchlist' accion.id %}" class="btn btn-danger btn-sm">Eliminar</a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                      {% else %}
+                        <span class="chip chip-gray">N/A</span>
+                      {% endif %}
+                    </td>
 
-    <script>
-        function actualizarTabla() {
-            fetch("{% url 'watchlist_data' %}")
-                .then(response => response.json())
-                .then(data => {
-                    const tbody = document.getElementById("tabla-watchlist");
-                    tbody.innerHTML = "";
+                    <!-- Acciones: SOLO ICONOS -->
+                    <td class="text-center row-actions-icons">
+                      <a class="btn btn-ghost btn-sm" href="{% url 'refrescar_watchlist_item' l.id a.id %}" title="Refrescar">
+                        <i class="bi bi-arrow-clockwise"></i>
+                      </a>
+                      <a class="btn btn-ghost btn-sm" href="{% url 'editar_accion_watchlist' l.id a.id %}" title="Editar">
+                        <i class="bi bi-pencil-square"></i>
+                      </a>
+                      <form method="post" action="{% url 'eliminar_watchlist' l.id a.id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button class="btn btn-danger-outline btn-sm" title="Eliminar"
+                                onclick="return confirm('¿Eliminar {{ a.ticker }} de {{ l.titulo }}?');">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                  {% endwith %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+              <div class="p-4 text-center text-muted">
+                Sin acciones en esta lista. Usa <strong>“+”</strong> para añadir.
+              </div>
+            {% endif %}
+          </div>
 
-                    data.acciones.forEach(accion => {
-                        const upsideColor = accion.upside > 0 ? "text-success" : (accion.upside < 0 ? "text-danger" : "text-warning");
-                        const flecha = accion.upside > 0 ? "🔼" : (accion.upside < 0 ? "🔽" : "");
-                        let badgeColor = "bg-secondary";
-                        let señal = "Esperar";
-                        if (accion.upside > 20) {
-                            badgeColor = "bg-success";
-                            señal = "Comprar";
-                        } else if (accion.upside < -10) {
-                            badgeColor = "bg-danger";
-                            señal = "Vender";
-                        }
+          <!-- NEWS (placeholder) -->
+          <div class="wl-pane" data-pane="news">
+            <div class="p-4 text-muted">Noticias para <strong>{{ l.titulo }}</strong> (pendiente de integrar).</div>
+          </div>
 
-                        tbody.innerHTML += `
-                        <tr>
-                            <td>${accion.ticker}</td>
-                            <td>${accion.precio_actual !== null ? accion.precio_actual.toFixed(2) + ' €' : 'N/A'}</td>
-                            <td>${accion.valor_objetivo !== null ? accion.valor_objetivo.toFixed(2) + ' €' : 'N/A'}</td>
-                            <td><span class="${upsideColor}">${accion.upside.toFixed(2)}% ${flecha}</span></td>
-                            <td><span class="badge ${badgeColor}">${señal}</span></td>
-                            <td>${accion.max_52s !== null ? accion.max_52s.toFixed(2) + ' €' : 'N/A'}</td>
-                            <td>${accion.min_52s !== null ? accion.min_52s.toFixed(2) + ' €' : 'N/A'}</td>
-                            <td>${accion.per !== null ? accion.per.toFixed(2) : 'N/A'}</td>
-                            <td>
-                                <a href="/watchlist/editar/${accion.id}/" class="btn btn-primary btn-sm">Editar</a>
-                                <a href="/watchlist/eliminar/${accion.id}/" class="btn btn-danger btn-sm">Eliminar</a>
-                            </td>
-                        </tr>`;
-                    });
-                });
-        }
-
-        actualizarTabla();  // Carga inicial
-        setInterval(actualizarTabla, 60000);  // Actualiza cada 60 segundos
-    </script>
+          <!-- ANALYSIS (placeholder) -->
+          <div class="wl-pane" data-pane="analysis">
+            <div class="p-4 text-muted">Análisis / notas para <strong>{{ l.titulo }}</strong> (pendiente de integrar).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
 </div>
+
+
+<!-- ===================== MODALES ===================== -->
+
+<!-- Modal: Añadir acción -->
+<div class="modal fade" id="modalAdd" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="" class="modal-content">
+      {% csrf_token %}
+      <input type="hidden" name="lista_id" id="inputListaId" value="">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Añadir a <span id="modalListTitle" class="fw-bold"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label">Ticker</label>
+            <input class="form-control" name="ticker" id="inputTicker" placeholder="Ej: AAPL" list="datalistTickers" required>
+            <datalist id="datalistTickers"></datalist>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Nombre (opcional)</label>
+            <input class="form-control" name="nombre" placeholder="Apple Inc">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Valor objetivo (opcional)</label>
+            <input class="form-control" name="valor_objetivo" placeholder="150.00" inputmode="decimal">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" type="submit">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Nueva lista -->
+<div class="modal fade" id="modalNewList" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="{% url 'crear_watchlist' %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-folder-plus me-2"></i>Nueva lista</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label">Título</label>
+          <input class="form-control" name="titulo" placeholder="Dividendos, Growth..." required>
+        </div>
+        <div class="mb-0">
+          <label class="form-label">Descripción (opcional)</label>
+          <input class="form-control" name="descripcion" placeholder="Notas cortas">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" type="submit">Crear</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Eliminar lista -->
+<div class="modal fade" id="modalDeleteList" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">
+          <i class="bi bi-trash me-2"></i>Eliminar lista <span id="delListTitle" class="fw-bold"></span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">Esta acción eliminará la lista y todas sus acciones asociadas. ¿Seguro que quieres continuar?</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-danger" type="submit">Sí, eliminar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ===================== SCRIPTS ===================== -->
+<script>
+  // Modal "Añadir": action y título dinámicos
+  const modalAdd = document.getElementById('modalAdd');
+  if (modalAdd) {
+    modalAdd.addEventListener('show.bs.modal', (ev) => {
+      const btn = ev.relatedTarget;
+      const listaId = btn.getAttribute('data-lista');
+      const titulo  = btn.getAttribute('data-titulo');
+      document.getElementById('inputListaId').value = listaId;
+      document.getElementById('modalListTitle').textContent = `(${titulo})`;
+      modalAdd.querySelector('form').action =
+        `{% url 'añadir_watchlist' 0 %}`.replace('/0/', `/${listaId}/`);
+      // limpia campos
+      modalAdd.querySelector('#inputTicker').value = '';
+      modalAdd.querySelector('input[name="nombre"]').value = '';
+      modalAdd.querySelector('input[name="valor_objetivo"]').value = '';
+    });
+  }
+
+  // Modal "Eliminar lista": action y título
+  const modalDeleteList = document.getElementById('modalDeleteList');
+  if (modalDeleteList) {
+    modalDeleteList.addEventListener('show.bs.modal', (ev) => {
+      const btn = ev.relatedTarget;
+      const listaId = btn.getAttribute('data-lista');
+      const titulo  = btn.getAttribute('data-titulo');
+      modalDeleteList.querySelector('#delListTitle').textContent = `(${titulo})`;
+      modalDeleteList.querySelector('form').action =
+        `{% url 'eliminar_watchlist_lista' 0 %}`.replace('/0/', `/${listaId}/`);
+    });
+  }
+
+  // Tabs por lista (funcionan sin recargar)
+  document.querySelectorAll('.wl-tabs').forEach(tabs => {
+    tabs.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-tab]');
+      if (!btn) return;
+      const listId = btn.getAttribute('data-list');
+      const target = btn.getAttribute('data-tab');
+      const panes = document.getElementById('wl-panes-' + listId);
+      if (!panes) return;
+
+      // activar botón
+      tabs.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active','btn-primary'));
+      tabs.querySelectorAll('[data-tab]').forEach(b => b.classList.add('btn-ghost'));
+      btn.classList.add('active','btn-primary');
+      btn.classList.remove('btn-ghost');
+
+      // mostrar pane
+      panes.querySelectorAll('.wl-pane').forEach(p => p.classList.remove('is-active'));
+      const pane = panes.querySelector('.wl-pane[data-pane="'+target+'"]');
+      if (pane) pane.classList.add('is-active');
+    });
+  });
+
+  // Autocompletar tickers (opcional)
+  const inputTicker = document.getElementById('inputTicker');
+  const dlTickers   = document.getElementById('datalistTickers');
+  if (inputTicker) {
+    let t;
+    inputTicker.addEventListener('input', () => {
+      const q = inputTicker.value.trim().toUpperCase();
+      if (t) clearTimeout(t);
+      if (!q || q.length < 1) return;
+      t = setTimeout(async () => {
+        try {
+          const url = `{% url 'autocompletar_ticker' %}?q=` + encodeURIComponent(q);
+          const r = await fetch(url, {headers:{'X-Requested-With':'fetch'}});
+          const data = await r.json();
+          dlTickers.innerHTML = '';
+          (data.suggestions || []).forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            dlTickers.appendChild(opt);
+          });
+        } catch(e) {}
+      }, 200);
+    });
+  }
+</script>
+
 {% endblock %}

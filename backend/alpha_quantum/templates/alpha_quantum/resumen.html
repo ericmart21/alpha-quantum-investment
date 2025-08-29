@@ -1,41 +1,490 @@
 {% extends "alpha_quantum/layout.html" %}
-{% block content %}
-<div class="container py-4">
-  <h2 class="mb-4">Resumen de Cartera</h2>
+{% load static %}
 
-  <div class="row g-3 mb-4">
-    <div class="col-md-4"><div class="card"><div class="card-body">
-      <h6>Total invertido</h6><h3>{{ total_invertido|floatformat:2 }} €</h3>
-    </div></div></div>
-    <div class="col-md-4"><div class="card"><div class="card-body">
-      <h6>Valor actual</h6><h3>{{ valor_actual|floatformat:2 }} €</h3>
-    </div></div></div>
-    <div class="col-md-4"><div class="card"><div class="card-body">
-      <h6>Rentabilidad</h6><h3>{{ rentabilidad|floatformat:2 }} €</h3>
-    </div></div></div>
+{% block title %}Resumen • Alpha Quantum{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1317; --panel:#151a21; --panel2:#10161d; --border:#232a33;
+    --text:#e7eef7; --muted:#9fb1c1; --ok:#19e3b1; --warn:#ff9f43; --down:#ff5964; --info:#4ea8ff;
+  }
+  body{background:var(--bg);color:var(--text)}
+  .card{background:var(--panel)!important;border:1px solid var(--border)!important;border-radius:16px}
+  .card-header{background:var(--panel2)!important;border-bottom:1px solid var(--border)!important;border-top-left-radius:16px;border-top-right-radius:16px}
+  .page-title{font-weight:800;letter-spacing:.3px}
+
+  /* KPIs */
+  .kpi{display:flex;gap:12px;align-items:center;padding:14px;border-radius:14px;
+       background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0)),var(--panel);
+       border:1px solid var(--border); height:100%}
+  .kpi .ico{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+            box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+  .kpi .meta{color:var(--muted);font-size:.85rem}
+  .kpi .val{font-weight:800;font-size:1.4rem}
+  .kpi.ok .ico{background:rgba(25,227,177,.12);color:var(--ok);border:1px solid rgba(25,227,177,.35)}
+  .kpi.info .ico{background:rgba(78,168,255,.12);color:#4ea8ff;border:1px solid rgba(78,168,255,.35)}
+  .kpi.warn .ico{background:rgba(255,159,67,.12);color:var(--warn);border:1px solid rgba(255,159,67,.35)}
+  .badge-soft{border:1px solid var(--border);background:#0f161a;color:#cfe7df;padding:.25rem .55rem;border-radius:10px;font-size:.75rem}
+
+  /* Small tiles */
+  .kpi-mini{padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);height:100%}
+  .kpi-mini .meta{font-size:.8rem;color:var(--muted)}
+  .kpi-mini .val{font-weight:800;font-size:1.2rem}
+
+  /* Charts */
+  .h-280{height:280px} .h-300{height:300px} .h-320{height:320px} .h-360{height:360px} .h-400{height:400px}
+  .chart-wrap{height:100%;padding:12px}
+  .legend-soft{font-size:.8rem;color:var(--muted)}
+
+  /* Accordion */
+  .accordion-button{background:var(--panel2); color:var(--text); border:1px solid var(--border)}
+  .accordion-button:not(.collapsed){background:var(--panel2); color:var(--text)}
+  .accordion-body{background:var(--panel); border:1px solid var(--border); border-top:0}
+
+  .alert-list,.news-list{list-style:none;margin:0;padding:0}
+  .alert-list li,.news-list li{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px dashed var(--border);
+                 border-radius:10px;margin-bottom:8px;background:rgba(255,255,255,.02)}
+  .alert-dot{min-width:8px;min-height:8px;margin-top:6px;border-radius:999px;background:var(--ok);box-shadow:0 0 0 3px rgba(25,227,177,.15)}
+  .alert-dot.warn{background:var(--warn);box-shadow:0 0 0 3px rgba(255,159,67,.15)}
+  .alert-dot.down{background:var(--down);box-shadow:0 0 0 3px rgba(255,89,100,.15)}
+
+  /* Notas */
+  .notes-area{width:100%;min-height:110px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);padding:10px}
+
+  /* Tablas */
+  .table-dark{--bs-table-bg:var(--panel);--bs-table-color:var(--text);--bs-table-border-color:var(--border)}
+  .table thead th{color:var(--muted)!important;border-color:var(--border)!important}
+  .table tbody td{border-color:#1f2937!important}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="page-title">📊 Resumen de Cartera</h2>
   </div>
 
-  <div class="card">
-    <div class="card-header">Posiciones</div>
-    <div class="card-body p-0">
-      <table class="table table-dark table-striped mb-0">
-        <thead>
-          <tr><th>Ticker</th><th>Cantidad</th><th>Precio compra</th><th>Precio actual</th></tr>
-        </thead>
-        <tbody>
-        {% for a in acciones %}
-          <tr>
-            <td>{{ a.ticker }}</td>
-            <td>{{ a.cantidad }}</td>
-            <td>{{ a.precio_compra }}</td>
-            <td>{{ a.precio_actual|default:"—" }}</td>
-          </tr>
-        {% empty %}
-          <tr><td colspan="4" class="text-center text-muted">Sin posiciones</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
+  <!-- KPIs fila 1 -->
+  <div class="row g-3 mb-3">
+    <div class="col-xxl-3 col-lg-6">
+      <div class="kpi ok">
+        <div class="ico"><i class="bi bi-wallet2"></i></div>
+        <div>
+          <div class="meta">Valor actual</div>
+          <div class="val">{{ valor_actual|floatformat:2 }} €</div>
+          <div class="meta">Suma de posiciones</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xxl-3 col-lg-6">
+      <div class="kpi info">
+        <div class="ico"><i class="bi bi-cart-check"></i></div>
+        <div>
+          <div class="meta">Total invertido</div>
+          <div class="val">{{ total_invertido|floatformat:2 }} €</div>
+          <div class="meta">Coste total de compra</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xxl-3 col-lg-6">
+      <div class="kpi {% if rentabilidad >= 0 %}ok{% else %}warn{% endif %}">
+        <div class="ico"><i class="bi bi-graph-up-arrow"></i></div>
+        <div>
+          <div class="meta">Rentabilidad</div>
+          <div class="val d-flex align-items-center gap-2">
+            {{ rentabilidad|floatformat:2 }} €
+            <span class="badge-soft">{% if rentabilidad >= 0 %}▲{% else %}▼{% endif %} {{ rentabilidad_pct|floatformat:2 }} %</span>
+          </div>
+          <div class="meta">vs invertido</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xxl-3 col-lg-6">
+      <div class="kpi">
+        <div class="ico"><i class="bi bi-speedometer2"></i></div>
+        <div>
+          <div class="meta">Métricas de riesgo</div>
+          <div class="val d-flex gap-3">
+            <span>Sharpe: <strong>{{ sharpe_ratio|floatformat:2 }}</strong></span>
+            <span>Vol: <strong>{{ volatilidad_pct|floatformat:1 }}%</strong></span>
+          </div>
+          <div class="meta">basado en últimos 12m</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs fila 2 -->
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <div class="kpi-mini">
+        <div class="meta">Max Drawdown (12m)</div>
+        <div class="val" id="kpiMdd">—</div>
+        <div class="legend-soft">Caída pico-valle máxima</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="kpi-mini">
+        <div class="meta">Yield on Cost (YoC)</div>
+        <div class="val" id="kpiYoc">—</div>
+        <div class="legend-soft">Dividendos 12m / Coste</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="kpi-mini">
+        <div class="meta">Comparativa S&P500 (12m)</div>
+        <div class="val" id="kpiBench">—</div>
+        <div class="legend-soft">Cartera − Benchmark</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Beneficios + Alertas/Noticias -->
+  <div class="row g-3 mb-3">
+    <div class="col-xxl-8">
+      <div class="card h-320">
+        <div class="card-header">Beneficios por Empresa (€)</div>
+        <div class="chart-wrap"><canvas id="barBeneficios"></canvas></div>
+      </div>
+    </div>
+    <div class="col-xxl-4">
+      <div class="accordion" id="accRight">
+        <div class="card mb-3">
+          <h2 class="card-header accordion-header p-0">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#colAlerts">
+              <i class="bi bi-bell me-2"></i> Alertas
+            </button>
+          </h2>
+          <div id="colAlerts" class="accordion-collapse collapse show" data-bs-parent="#accRight">
+            <div class="accordion-body">
+              <ul class="alert-list" id="alertsBox">
+                <li><span class="alert-dot"></span><span>META superó el objetivo de 52 w.</span></li>
+                <li><span class="alert-dot warn"></span><span>NVDA cae más de 2% hoy.</span></li>
+                <li><span class="alert-dot down"></span><span>AAPL por debajo de la media 50d.</span></li>
+              </ul>
+              <button class="btn btn-sm btn-outline-light" id="btnAddAlert"><i class="bi bi-plus"></i> Añadir alerta</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2 class="card-header accordion-header p-0">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#colNews">
+              <i class="bi bi-newspaper me-2" style="color:var(--info)"></i> Noticias de tu cartera
+            </button>
+          </h2>
+          <div id="colNews" class="accordion-collapse collapse" data-bs-parent="#accRight">
+            <div class="accordion-body">
+              <ul class="news-list" id="newsList">
+                <li class="text-muted">Cargando titulares…</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Donuts: Ticker / Sector / Divisa -->
+  <div class="row g-3 mb-3">
+    <div class="col-xxl-4">
+      <div class="card h-400">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Desglose por Ticker</span><small class="text-muted">% por ticker</small>
+        </div>
+        <div class="chart-wrap"><canvas id="donutPositions"></canvas></div>
+      </div>
+    </div>
+    <div class="col-xxl-4">
+      <div class="card h-400">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Distribución por Sector</span><small class="text-muted">% por sector</small>
+        </div>
+        <div class="chart-wrap"><canvas id="donutSector"></canvas></div>
+      </div>
+    </div>
+    <div class="col-xxl-4">
+      <div class="card h-400">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Distribución por Divisa</span><small class="text-muted">% por divisa</small>
+        </div>
+        <div class="chart-wrap"><canvas id="donutDivisa"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Equity curve (ancho completo) -->
+  <div class="row g-3 mb-3">
+    <div class="col-xxl-12">
+      <div class="card h-320">
+        <div class="card-header">Equity curve: Cartera vs S&P500 (12m)</div>
+        <div class="chart-wrap"><canvas id="lineEquity"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Coste vs Valor (ancho completo, inferior) -->
+  <div class="row g-3 mb-3">
+    <div class="col-xxl-12">
+      <div class="card h-360">
+        <div class="card-header">Coste vs Valor de mercado</div>
+        <div class="chart-wrap"><canvas id="barCosteValor"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dividendos por empresa + Notas -->
+  <div class="row g-3">
+    <div class="col-xxl-8">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Dividendos por empresa ({{ anio_dividendo }})</span>
+          <small class="text-muted">Total 12m: <strong id="kpiDivTotal">—</strong></small>
+        </div>
+        <div class="table-responsive p-2">
+          <table class="table table-dark table-hover align-middle mb-0" id="tblDiv">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th class="text-end">Dividendo €</th>
+                <th class="text-end">% del total</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr>
+                <th>Total</th>
+                <th class="text-end" id="divTotalCell">—</th>
+                <th class="text-end">100%</th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-xxl-4">
+      <div class="card h-300">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>🗒️ Notas rápidas</span>
+          <small class="text-muted">se guardan automáticamente</small>
+        </div>
+        <div class="p-3">
+          <textarea class="notes-area" id="notesBox" placeholder="Escribe ideas, recordatorios o to-dos aquí…"></textarea>
+        </div>
+      </div>
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script>
+  // ==== Datos del backend ====
+  const posLabels  = {{ dist_ticker_labels|safe|default:"[]" }};
+  const posValues  = {{ dist_ticker_values|safe|default:"[]" }};
+  const secLabels  = {{ dist_sector_labels|safe|default:"[]" }};
+  const secValues  = {{ dist_sector_values|safe|default:"[]" }};
+  const divLabels  = {{ dist_divisa_labels|safe|default:"[]" }};
+  const divValues  = {{ dist_divisa_values|safe|default:"[]" }};
+
+  const valorActual = Number({{ valor_actual|default:0 }});
+  const totalInvert = Number({{ total_invertido|default:0 }});
+
+  const pnlLabels  = {{ beneficios_labels|safe|default:"[]" }};
+  const pnlValues  = {{ beneficios_values|safe|default:"[]" }};
+
+  const costeLabels = {{ coste_labels|safe|default:"[]" }};
+  const costeValues = {{ coste_values|safe|default:"[]" }};
+  const valorValues = {{ valor_values|safe|default:"[]" }};
+
+  const rentLabels = {{ rent_12m_labels|safe|default:"[]" }};
+  const rentValues = {{ rent_12m_values|safe|default:"[]" }};
+
+  const div12mTotal = Number({{ dividendos_12m_total|default:0 }});
+  const dividendosAnuales = {{ dividendos_anuales|safe|default:"{}" }};
+  const divActualLabels = {{ div_actual_labels|safe|default:"[]" }};
+  const divActualValues = {{ div_actual_values|safe|default:"[]" }};
+  const posicionesCtx = {% if posiciones %} {{ posiciones|safe }} {% else %} null {% endif %};
+
+  // ==== Utils ====
+  const fmtEUR = v => new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(Number(v)||0);
+  const fmtPct = v => `${(Number(v)||0).toFixed(2)}%`;
+  const COLORS = ['#4ea8ff','#19e3b1','#ff9f43','#ff5964','#8b5cf6','#06b6d4','#84cc16','#10b981','#f97316','#22c55e'];
+
+  // ==== KPIs extra ====
+  (function computeExtraKPIs(){
+    const equity = rentValues.map(p => 100*(1 + (Number(p)||0)/100));
+    let peak = -Infinity, mdd = 0;
+    for (const x of equity){ peak = Math.max(peak, x); const dd = peak ? (x-peak)/peak : 0; mdd = Math.min(mdd, dd); }
+    document.getElementById('kpiMdd').textContent = fmtPct(mdd*100);
+
+    const yoc = totalInvert > 0 ? (div12mTotal/totalInvert)*100 : 0;
+    document.getElementById('kpiYoc').textContent = fmtPct(yoc);
+
+    const from = rentLabels?.[0] || '';
+    const to   = rentLabels?.at?.(-1) || '';
+    const benchURL = `/api/benchmark/spx?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    const cartera12m = rentValues?.at?.(-1) ?? 0;
+
+    fetch(benchURL, {headers:{'Accept':'application/json'}})
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        let benchEq = equity.map(()=>100), bench12m = 0;
+        if (d && Array.isArray(d.values) && d.values.length){
+          benchEq = d.values.map(p=>100*(1+(Number(p)||0)/100));
+          bench12m = Number(d.values.at(-1))||0;
+        }
+        drawEquity(rentLabels, equity, benchEq);
+        const diff = cartera12m - bench12m;
+        const el = document.getElementById('kpiBench');
+        el.textContent = (diff>=0?'+':'') + fmtPct(diff);
+        el.style.color = diff>=0 ? 'var(--ok)' : 'var(--down)';
+      })
+      .catch(()=>{ drawEquity(rentLabels, equity, equity.map(()=>100)); });
+  })();
+
+  // ==== Donut center plugin ====
+  const CenterTotalPlugin = (title) => ({
+    id: 'centerTotal',
+    beforeDraw(chart){
+      const { ctx, chartArea } = chart; if (!chartArea) return;
+      const { left, width, top, height } = chartArea;
+      ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#9fb1c1'; ctx.font='600 12px system-ui, -apple-system, Segoe UI, Roboto';
+      ctx.fillText(title, left + width/2, top + height/2 - 10);
+      const total = chart.data.datasets[0].data.reduce((a,b)=>a + Number(b||0), 0);
+      ctx.fillStyle='#e7eef7'; ctx.font='800 16px system-ui, -apple-system, Segoe UI, Roboto';
+      ctx.fillText(fmtEUR(total), left + width/2, top + height/2 + 12);
+      ctx.restore();
+    }
+  });
+
+  // ==== Beneficios ====
+  new Chart(document.getElementById('barBeneficios'), {
+    type:'bar',
+    data:{ labels:pnlLabels,
+      datasets:[{ label:'P/L €', data:pnlValues, borderWidth:0, borderRadius:6, backgroundColor:c=>{
+        const v=c.raw||0; return v>=0? 'rgba(25,227,177,.55)':'rgba(255,89,100,.55)'; }}]},
+    options:{ maintainAspectRatio:false,
+      scales:{ x:{ grid:{display:false}, ticks:{color:'#cfe7df'}},
+               y:{ grid:{color:'#1f2937'}, ticks:{color:'#cfe7df', callback:v=>fmtEUR(v)}}},
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>fmtEUR(ctx.raw)}}}
+    }
+  });
+
+  // ==== Donuts (leyenda a la derecha, sin datalabels) ====
+  function donut(id, labels, values, centerTitle){
+    new Chart(document.getElementById(id), {
+      type:'doughnut',
+      data:{ labels, datasets:[{ data:values, backgroundColor:COLORS, borderWidth:0, hoverOffset:8 }]},
+      plugins:[ChartDataLabels, CenterTotalPlugin(centerTitle)],
+      options:{
+        maintainAspectRatio:false, cutout:'58%', rotation:-90,
+        plugins:{
+          legend:{ display:true, position:'right', labels:{color:'#cfe7df', usePointStyle:true, padding:15}},
+          tooltip:{ callbacks:{ label:(ctx)=>{
+            const raw=ctx.raw||0, t=ctx.dataset.data.reduce((a,b)=>a+Number(b||0),0)||1;
+            return `${ctx.label}: ${fmtEUR(raw)} (${(raw/t*100).toFixed(1)}%)`;
+          }}},
+          datalabels:{ display:false }
+        }
+      }
+    });
+  }
+  donut('donutPositions', posLabels, posValues, 'TOTAL');
+  donut('donutSector',    secLabels, secValues, 'TOTAL SECTOR');
+  donut('donutDivisa',    divLabels, divValues, 'TOTAL DIVISA');
+
+  // ==== Coste vs Valor (inferior, ancho completo) ====
+  new Chart(document.getElementById('barCosteValor'), {
+    type:'bar',
+    data:{ labels:costeLabels,
+      datasets:[
+        { label:'Coste',   data:costeValues, backgroundColor:'rgba(78,168,255,.55)', borderRadius:6 },
+        { label:'Mercado', data:valorValues, backgroundColor:'rgba(25,227,177,.55)', borderRadius:6 }
+      ]},
+    options:{ maintainAspectRatio:false,
+      scales:{ x:{ grid:{display:false}, ticks:{color:'#cfe7df'}},
+               y:{ grid:{color:'#1f2937'}, ticks:{color:'#cfe7df', callback:v=>fmtEUR(v)}}},
+      plugins:{ legend:{labels:{color:'#cfe7df'}},
+                tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtEUR(ctx.raw)}`}}}
+    }
+  });
+
+  // ==== Equity curve ====
+  function drawEquity(labels, eqPortfolio, eqBench){
+    const ctx = document.getElementById('lineEquity'); if(!ctx) return;
+    new Chart(ctx, {
+      type:'line',
+      data:{ labels,
+        datasets:[
+          { label:'Cartera (indexado)', data:eqPortfolio, borderWidth:2, tension:.35, pointRadius:0, fill:false, borderColor:'#19e3b1' },
+          { label:'S&P500 (indexado)', data:eqBench,     borderWidth:2, tension:.35, pointRadius:0, fill:false, borderColor:'#4ea8ff' }
+        ]},
+      options:{ maintainAspectRatio:false,
+        plugins:{ legend:{labels:{color:'#cfe7df'}},
+                  tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${(ctx.raw??0).toFixed(1)}`}}},
+        scales:{ x:{ grid:{display:false}, ticks:{color:'#cfe7df'}},
+                 y:{ grid:{color:'#1f2937'}, ticks:{color:'#cfe7df'} } }
+      }
+    });
+  }
+
+  // ==== Tabla dividendos por empresa (año actual) ====
+  (function buildDivTable(){
+    const tbody = document.querySelector('#tblDiv tbody');
+    const totalCell = document.getElementById('divTotalCell');
+    const kpi = document.getElementById('kpiDivTotal');
+    tbody.innerHTML = '';
+
+    const pairs = (divActualLabels||[]).map((tk,i)=>({ tk, eur:Number(divActualValues?.[i]||0) }));
+    const total = pairs.reduce((a,b)=>a+b.eur, 0);
+
+    pairs.sort((a,b)=>b.eur - a.eur).forEach(p=>{
+      const tr = document.createElement('tr');
+      const pct = total>0 ? (p.eur/total)*100 : 0;
+      tr.innerHTML = `
+        <td class="fw-semibold">${p.tk}</td>
+        <td class="text-end">${fmtEUR(p.eur)}</td>
+        <td class="text-end">${fmtPct(pct)}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    totalCell.textContent = fmtEUR(total);
+    kpi.textContent = fmtEUR(div12mTotal);
+  })();
+
+  // ==== Noticias (enlaces a Google News) ====
+  (function newsBlock(){
+    const list = document.getElementById('newsList'); if(!list) return;
+    list.innerHTML = '';
+    const top = (posLabels||[]).slice(0,5);
+    if (!top.length){ list.innerHTML = '<li class="text-muted">Sin tickers. Añade posiciones para ver noticias.</li>'; return; }
+    top.forEach(tk=>{
+      const url = `https://news.google.com/search?q=${encodeURIComponent(tk)}%20stock&hl=es-ES&gl=ES&ceid=ES:es`;
+      const li = document.createElement('li');
+      li.innerHTML = `<i class="bi bi-newspaper" style="color:var(--info)"></i>
+                      <span><a target="_blank" href="${url}" class="link-light">${tk}: ver titulares recientes</a></span>`;
+      list.appendChild(li);
+    });
+  })();
+
+  // ==== Notas (localStorage) ====
+  (function notes(){
+    const KEY='aq_notes_resumen', box=document.getElementById('notesBox');
+    try{ box.value = localStorage.getItem(KEY) || ''; }catch(_){}
+    box.addEventListener('input', ()=>{ try{ localStorage.setItem(KEY, box.value||''); }catch(_){} });
+  })();
+
+  // Botón añadir alerta (demo)
+  document.getElementById('btnAddAlert')?.addEventListener('click', ()=>{
+    const ul=document.getElementById('alertsBox');
+    const li=document.createElement('li');
+    li.innerHTML = `<span class="alert-dot"></span><span>Nueva alerta creada.</span>`;
+    ul.prepend(li);
+  });
+</script>
 {% endblock %}

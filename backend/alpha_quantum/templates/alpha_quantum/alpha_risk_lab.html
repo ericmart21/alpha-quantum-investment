@@ -1,0 +1,93 @@
+{% extends 'alpha_quantum/layout.html' %}
+
+{% block title %}Risk Lab • Alpha Quantum{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <h2 class="mb-3">⚠️ Laboratorio de Riesgo</h2>
+  <p class="text-muted">Estimación del Valor en Riesgo (VaR) usando el método de simulación histórica con los últimos 12 meses de datos.</p>
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="card" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+        <div class="card-body">
+          <h5 class="card-title">VaR 95%</h5>
+          {% if var_95_pct is not None %}
+            <p class="display-6">{{ var_95_pct }} %</p>
+            <p class="h5">≈ {{ var_95_abs|floatformat:2 }} €</p>
+            <small>Probabilidad del 5% de perder al menos este importe en un día.</small>
+          {% else %}
+            <p class="text-muted">No hay datos suficientes para calcular el VaR.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+        <div class="card-body">
+          <h5 class="card-title">VaR 99%</h5>
+          {% if var_99_pct is not None %}
+            <p class="display-6">{{ var_99_pct }} %</p>
+            <p class="h5">≈ {{ var_99_abs|floatformat:2 }} €</p>
+            <small>Probabilidad del 1% de perder al menos este importe en un día.</small>
+          {% else %}
+            <p class="text-muted">No hay datos suficientes para calcular el VaR.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt-4" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+    <div class="card-header" style="background:var(--aq-panel);border-bottom:1px solid var(--aq-border)">
+      Distribución de rendimientos diarios (%)
+    </div>
+    <div class="card-body">
+      <canvas id="histChart" height="300"></canvas>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const histLabels = {{ hist_labels|safe }};
+  const histCounts = {{ hist_counts|safe }};
+  const ctxHist = document.getElementById('histChart').getContext('2d');
+  const histChart = new Chart(ctxHist, {
+    type: 'bar',
+    data: {
+      labels: histLabels,
+      datasets: [{
+        label: 'Frecuencia',
+        data: histCounts,
+        backgroundColor: '#4ea8ff',
+        borderColor: '#3b78a4',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#cfe7df' } },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#cfe7df' },
+          grid: { color: '#1f2730' }
+        },
+        y: {
+          ticks: { color: '#cfe7df' },
+          grid: { color: '#1f2730' }
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}

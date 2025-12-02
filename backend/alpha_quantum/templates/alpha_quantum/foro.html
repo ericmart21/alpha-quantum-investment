@@ -1,0 +1,59 @@
+{% extends 'alpha_quantum/layout.html' %}
+{% load static %}
+
+{% block title %}Foro de Inversores • AQI{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <h2 class="section-title">💬 Foro de Inversores</h2>
+  <p class="text-muted mb-3">Debate con otros usuarios sobre acciones, divisas, macroeconomía y más. A continuación se muestran ejemplos estáticos.</p>
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div class="card h-100" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+        <div class="card-header"><strong>Temas en tendencia</strong></div>
+        <div class="card-body">
+          <ul class="list-unstyled mb-0">
+            {% for t in trending_topics %}
+            <li class="mb-3">
+              <span class="fw-bold">{{ t.titulo }}</span><br>
+              <small class="text-muted">{{ t.comentarios }} comentarios · {{ t.sentimiento }}</small>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-8">
+      <div class="card" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+        <div class="card-header"><strong>Publicaciones destacadas</strong></div>
+        <div class="card-body table-responsive p-0">
+          <table class="table table-dark table-striped align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Autor</th>
+                <th>Fecha</th>
+                <th>👍 Votos</th>
+                <th>💭 Respuestas</th>
+                <th>Sentimiento</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in publicaciones %}
+              <tr>
+                <td>{{ p.titulo }}</td>
+                <td>{{ p.autor }}</td>
+                <td>{{ p.fecha }}</td>
+                <td>{{ p.votos }}</td>
+                <td>{{ p.respuestas }}</td>
+                <td>{{ p.sentimiento }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

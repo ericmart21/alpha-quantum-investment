@@ -60,7 +60,15 @@ urlpatterns = [
 
 
     # Noticias / Fundamental / Calendario
-    path('noticias/', views.noticias, name='noticias'),
+       # Módulos adicionales: Indicadores, Bots, Macroeconomía y Foro
+    path('alpha-indicators/', views.alpha_indicators, name='alpha_indicators'),
+    path('alpha-bots/', views.alpha_bots, name='alpha_bots'),
+    path('macroeconomia/', views.macroeconomia, name='macroeconomia'),
+    path('foro/', views.foro, name='foro'),
+
+    # Risk Lab
+    path('alpha-risk/', views.alpha_risk_lab, name='alpha_risk_lab'),
+ path('noticias/', views.noticias, name='noticias'),
     path('fundamental/', views.analisis_fundamental, name='fundamental'),
     path('calendario/', views.calendario, name='calendario'),
     path('api/eventos/', views.eventos_api, name='eventos_api'),

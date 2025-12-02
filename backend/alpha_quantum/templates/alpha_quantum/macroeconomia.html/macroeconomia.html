@@ -1,0 +1,62 @@
+{% extends 'alpha_quantum/layout.html' %}
+{% load static %}
+
+{% block title %}Macroeconomía • AQI{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <h2 class="mb-4">🌍 Panorama Macroeconómico</h2>
+  <p class="text-muted">Indicadores clave de la economía global. Estos valores son ejemplos estáticos y deberían actualizarse con datos reales en producción.</p>
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card p-3" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+        <h5>Indicador Buffett</h5>
+        <p class="display-6">{{ buffett|floatformat:1 }}%</p>
+        <small>Relación capitalización / PIB (US). >100% sugiere sobrevaloración.</small>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+        <h5>ISM Manufacturero</h5>
+        <p class="display-6">{{ ism|floatformat:1 }}</p>
+        <small>>50 indica expansión económica.</small>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+        <h5>PMI Compuesto</h5>
+        <p class="display-6">{{ pmi|floatformat:1 }}</p>
+        <small>Valor clave para medir actividad manufacturera y de servicios.</small>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+        <h5>Curva de Tipos (10Y-2Y)</h5>
+        <p class="display-6">{{ yield_curve|floatformat:2 }}%</p>
+        <small>Negativa indica posible recesión.</small>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+        <h5>Prob. Recesión</h5>
+        <p class="display-6">{{ prob_recesion|floatformat:1 }}%</p>
+        <small>Estimación basada en múltiples factores.</small>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+        <h5>Smart Money Flow</h5>
+        <p class="display-6">{{ smart_money|floatformat:2 }}</p>
+        <small>>0: dinero institucional fluye a renta variable.</small>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="card p-3" style="background:var(--aq-panel);border:1px solid var(--aq-border);color:var(--aq-text)">
+        <h5>Fase del Ciclo Económico</h5>
+        <p class="h4">{{ ciclo }}</p>
+        <small>Determinada en función de ISM y curva de tipos.</small>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

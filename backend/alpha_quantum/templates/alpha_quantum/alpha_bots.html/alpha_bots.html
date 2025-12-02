@@ -1,0 +1,56 @@
+{% extends 'alpha_quantum/layout.html' %}
+{% load static %}
+
+{% block title %}Alpha Bots • AQI{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <h2 class="section-title">🤖 Alpha Bots</h2>
+  <p class="text-muted mb-3">Rendimiento histórico y métricas de bots de trading predefinidos. Esta sección es ilustrativa; en una versión completa se conectaría a MetaTrader 5 o a APIs de broker.</p>
+  {% if bots %}
+    <div class="card mb-4">
+      <div class="card-header">Bots y estrategias</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-dark table-striped table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Estrategia</th>
+                <th>Rentabilidad (%)</th>
+                <th>Drawdown (%)</th>
+                <th>Sharpe</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for b in bots %}
+              <tr>
+                <td><strong>{{ b.nombre }}</strong></td>
+                <td>{{ b.estrategia }}</td>
+                <td>{{ b.rentabilidad|floatformat:2 }}</td>
+                <td>{{ b.drawdown|floatformat:2 }}</td>
+                <td>{{ b.sharpe|floatformat:2 }}</td>
+                <td>
+                  {% if b.estado == 'Activo' %}
+                    <span class="badge bg-success">Activo</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Pausado</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="card-body">
+        <p class="text-muted mb-0">No hay datos de bots disponibles.</p>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

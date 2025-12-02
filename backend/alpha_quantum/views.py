@@ -1,4 +1,4 @@
-# alpha_quantum/views.py
+.# alpha_quantum/views.py
 from __future__ import annotations
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.timezone import now
@@ -2361,3 +2361,29 @@ def editar_accion(request, accion_id):
         form = AccionForm(instance=accion)
 
     return render(request, "alpha_quantum/editar_accion.html", {"form": form})
+
+
+@login_required
+def alpha_bots(request):
+    """Renderiza la página de Alpha Bots."""
+    return render(request, "alpha_quantum/alpha_bots.html", {})
+
+@login_required
+def alpha_indicators(request):
+    """Renderiza la página de Alpha Indicators."""
+    return render(request, "alpha_quantum/alpha_indicators.html", {})
+
+@login_required
+def macroeconomia(request):
+    """Renderiza la página de Macroeconomía."""
+    return render(request, "alpha_quantum/macroeconomia.html", {})
+
+@login_required
+def foro(request):
+    """Renderiza la página del Foro."""
+    return render(request, "alpha_quantum/foro.html", {})
+
+@login_required
+def alpha_risk_lab(request):
+    """Renderiza la página de Risk Lab."""
+    return render(request, "alpha_quantum/alpha_risk_lab.html", {})

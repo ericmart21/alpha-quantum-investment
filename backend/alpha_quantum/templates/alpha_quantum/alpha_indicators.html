@@ -1,0 +1,55 @@
+{% extends 'alpha_quantum/layout.html' %}
+{% load static %}
+
+{% block title %}Alpha Indicators • AQI{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <h2 class="section-title">📈 Alpha Indicators</h2>
+  {% if indicadores %}
+    <div class="card mb-4">
+      <div class="card-header">Indicadores técnicos y de momentum</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-dark table-striped table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>RSI</th>
+                <th>MACD</th>
+                <th>Señal</th>
+                <th>Hist</th>
+                <th>Volatilidad (%, anual)</th>
+                <th>Momentum 30d (%)</th>
+                <th>Indicador</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for it in indicadores %}
+              <tr>
+                <td><strong>{{ it.ticker }}</strong></td>
+                <td>{{ it.rsi|default:"—" }}</td>
+                <td>{{ it.macd|default:"—" }}</td>
+                <td>{{ it.signal|default:"—" }}</td>
+                <td>{{ it.hist|default:"—" }}</td>
+                <td>{{ it.volatilidad|floatformat:2 }}</td>
+                <td>{{ it.momento|floatformat:2 }}</td>
+                <td>{{ it.senial|default:"—" }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="8" class="text-center text-muted">No se encontraron indicadores.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="card-body">
+        <p class="text-muted mb-0">No hay activos en cartera o watchlist para mostrar indicadores.</p>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -52,3 +52,97 @@ body{ background:var(--aq-bg); color:var(--aq-text); }
 
 .icon-buy  { color: var(--accent);   font-size: 1rem; }  /* verde */
 .icon-sell { color: var(--danger);   font-size: 1rem; }  /* rojo  */
+
+/* === Generic card and table styles === */
+/*
+ * Many templates define their own inline styles for cards and tables. To promote
+ * consistency across the application, provide sane defaults for cards,
+ * card headers and dark tables. Individual templates can still override
+ * these values inline, but where no overrides exist the following
+ * definitions will ensure a cohesive look and feel.
+ */
+
+/* Card container */
+.card {
+  background: var(--aq-panel) !important;
+  border: 1px solid var(--aq-border) !important;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
+  color: var(--aq-text);
+}
+
+/* Card header */
+.card-header {
+  background: var(--aq-panel) !important;
+  border-bottom: 1px solid var(--aq-border) !important;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  color: var(--aq-text);
+  font-weight: 600;
+}
+
+/* Table dark theme */
+.table-dark {
+  --bs-table-bg: var(--aq-panel);
+  --bs-table-color: var(--aq-text);
+  --bs-table-border-color: var(--aq-border);
+}
+
+/* Dark table header row */
+.table-dark thead th {
+  background: var(--aq-panel) !important;
+  color: var(--aq-text) !important;
+  border-color: var(--aq-border) !important;
+}
+
+/* Zebra striping for dark tables */
+.table-dark tbody tr:nth-child(even) {
+  background: #10161e;
+}
+.table-dark tbody tr:nth-child(odd) {
+  background: #0e141b;
+}
+.table-dark tbody tr:hover {
+  background: #17212b;
+}
+
+/* Standard badge formatting */
+.badge {
+  border-radius: 0.75rem;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.6rem;
+}
+.badge.bg-success {
+  background-color: #198754 !important;
+  color: #fff !important;
+}
+.badge.bg-danger {
+  background-color: #dc3545 !important;
+  color: #fff !important;
+}
+.badge.bg-warning {
+  background-color: #ffc107 !important;
+  color: #000 !important;
+}
+.badge.bg-secondary {
+  background-color: #6c757d !important;
+  color: #fff !important;
+}
+
+/* Support for section titles */
+.section-title {
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  margin-bottom: 1rem;
+}
+
+/* Utility spacing classes */
+.mt-4 {
+  margin-top: 1.5rem !important;
+}
+.mb-4 {
+  margin-bottom: 1.5rem !important;
+}
+.rounded-16 {
+  border-radius: 16px !important;
+}
